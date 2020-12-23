@@ -85,8 +85,8 @@ int __ext4_check_dir_entry(const char *function, unsigned int line,
 	else if (unlikely(next_offset > size - EXT4_DIR_REC_LEN(1) &&
 			  next_offset != size))
 		error_msg = "directory entry too close to block end";
-	else if (unlikely(le32_to_cpu(de->inode) >
-			le32_to_cpu(EXT4_SB(dir->i_sb)->s_es->s_inodes_count)))
+	else if (unlikely(le32toh(de->inode) >
+			le32toh(EXT4_SB(dir->i_sb)->s_es->s_inodes_count)))
 		error_msg = "inode out of bounds";
 	else
 		return 0;
@@ -95,13 +95,13 @@ int __ext4_check_dir_entry(const char *function, unsigned int line,
 		ext4_error_file(filp, function, line, bh->b_blocknr,
 				"bad entry in directory: %s - offset=%u, "
 				"inode=%u, rec_len=%d, name_len=%d, size=%d",
-				error_msg, offset, le32_to_cpu(de->inode),
+				error_msg, offset, le32toh(de->inode),
 				rlen, de->name_len, size);
 	else
 		ext4_error_inode(dir, function, line, bh->b_blocknr,
 				"bad entry in directory: %s - offset=%u, "
 				"inode=%u, rec_len=%d, name_len=%d, size=%d",
-				 error_msg, offset, le32_to_cpu(de->inode),
+				 error_msg, offset, le32toh(de->inode),
 				 rlen, de->name_len, size);
 
 	return 1;
@@ -252,11 +252,11 @@ static int ext4_readdir(struct file *file, struct dir_context *ctx)
 			}
 			offset += ext4_rec_len_from_disk(de->rec_len,
 					sb->s_blocksize);
-			if (le32_to_cpu(de->inode)) {
+			if (le32toh(de->inode)) {
 				if (!IS_ENCRYPTED(inode)) {
 					if (!dir_emit(ctx, de->name,
 					    de->name_len,
-					    le32_to_cpu(de->inode),
+					    le32toh(de->inode),
 					    get_dtype(sb, de->file_type)))
 						goto done;
 				} else {
@@ -274,7 +274,7 @@ static int ext4_readdir(struct file *file, struct dir_context *ctx)
 						goto errout;
 					if (!dir_emit(ctx,
 					    de_name.name, de_name.len,
-					    le32_to_cpu(de->inode),
+					    le32toh(de->inode),
 					    get_dtype(sb, de->file_type)))
 						goto done;
 				}
@@ -460,7 +460,7 @@ int ext4_htree_store_dirent(struct file *dir_file, __u32 hash,
 		return -ENOMEM;
 	new_fn->hash = hash;
 	new_fn->minor_hash = minor_hash;
-	new_fn->inode = le32_to_cpu(dirent->inode);
+	new_fn->inode = le32toh(dirent->inode);
 	new_fn->name_len = ent_name->len;
 	new_fn->file_type = dirent->file_type;
 	memcpy(new_fn->name, ent_name->name, ent_name->len);

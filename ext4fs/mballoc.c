@@ -2201,7 +2201,7 @@ static int ext4_mb_good_group_nolock(struct ext4_allocation_context *ac,
 		    (!sbi->s_log_groups_per_flex ||
 		     ((group & ((1 << sbi->s_log_groups_per_flex) - 1)) != 0)) &&
 		    !(ext4_has_group_desc_csum(sb) &&
-		      (gdp->bg_flags & cpu_to_le16(EXT4_BG_BLOCK_UNINIT))))
+		      (gdp->bg_flags & htole16(EXT4_BG_BLOCK_UNINIT))))
 			return 0;
 		ret = ext4_mb_init_group(sb, group, GFP_NOFS);
 		if (ret)
@@ -2245,7 +2245,7 @@ ext4_group_t ext4_mb_prefetch(struct super_block *sb, ext4_group_t group,
 		    EXT4_MB_GRP_NEED_INIT(grp) &&
 		    ext4_free_group_clusters(sb, gdp) > 0 &&
 		    !(ext4_has_group_desc_csum(sb) &&
-		      (gdp->bg_flags & cpu_to_le16(EXT4_BG_BLOCK_UNINIT)))) {
+		      (gdp->bg_flags & htole16(EXT4_BG_BLOCK_UNINIT)))) {
 			bh = ext4_read_block_bitmap_nowait(sb, group, true);
 			if (bh && !IS_ERR(bh)) {
 				if (!buffer_uptodate(bh) && cnt)
@@ -2288,7 +2288,7 @@ void ext4_mb_prefetch_fini(struct super_block *sb, ext4_group_t group,
 		if (EXT4_MB_GRP_NEED_INIT(grp) &&
 		    ext4_free_group_clusters(sb, gdp) > 0 &&
 		    !(ext4_has_group_desc_csum(sb) &&
-		      (gdp->bg_flags & cpu_to_le16(EXT4_BG_BLOCK_UNINIT)))) {
+		      (gdp->bg_flags & htole16(EXT4_BG_BLOCK_UNINIT)))) {
 			if (ext4_mb_init_group(sb, group, GFP_NOFS))
 				break;
 		}
@@ -2664,7 +2664,7 @@ int ext4_mb_add_groupinfo(struct super_block *sb, ext4_group_t group,
 	 * empty groups without initialization
 	 */
 	if (ext4_has_group_desc_csum(sb) &&
-	    (desc->bg_flags & cpu_to_le16(EXT4_BG_BLOCK_UNINIT))) {
+	    (desc->bg_flags & htole16(EXT4_BG_BLOCK_UNINIT))) {
 		meta_group_info[i]->bb_free =
 			ext4_free_clusters_after_init(sb, group, desc);
 	} else {
@@ -3259,8 +3259,8 @@ ext4_mb_mark_diskspace_used(struct ext4_allocation_context *ac,
 	ext4_set_bits(bitmap_bh->b_data, ac->ac_b_ex.fe_start,
 		      ac->ac_b_ex.fe_len);
 	if (ext4_has_group_desc_csum(sb) &&
-	    (gdp->bg_flags & cpu_to_le16(EXT4_BG_BLOCK_UNINIT))) {
-		gdp->bg_flags &= cpu_to_le16(~EXT4_BG_BLOCK_UNINIT);
+	    (gdp->bg_flags & htole16(EXT4_BG_BLOCK_UNINIT))) {
+		gdp->bg_flags &= htole16(~EXT4_BG_BLOCK_UNINIT);
 		ext4_free_group_clusters_set(sb, gdp,
 					     ext4_free_clusters_after_init(sb,
 						ac->ac_b_ex.fe_group, gdp));
@@ -3340,8 +3340,8 @@ void ext4_mb_mark_bb(struct super_block *sb, ext4_fsblk_t block,
 	else
 		mb_test_and_clear_bits(bitmap_bh->b_data, blkoff, clen);
 	if (ext4_has_group_desc_csum(sb) &&
-	    (gdp->bg_flags & cpu_to_le16(EXT4_BG_BLOCK_UNINIT))) {
-		gdp->bg_flags &= cpu_to_le16(~EXT4_BG_BLOCK_UNINIT);
+	    (gdp->bg_flags & htole16(EXT4_BG_BLOCK_UNINIT))) {
+		gdp->bg_flags &= htole16(~EXT4_BG_BLOCK_UNINIT);
 		ext4_free_group_clusters_set(sb, gdp,
 					     ext4_free_clusters_after_init(sb,
 						group, gdp));
@@ -4623,9 +4623,9 @@ ext4_mb_initialize_context(struct ext4_allocation_context *ac,
 
 	/* start searching from the goal */
 	goal = ar->goal;
-	if (goal < le32_to_cpu(es->s_first_data_block) ||
+	if (goal < le32toh(es->s_first_data_block) ||
 			goal >= ext4_blocks_count(es))
-		goal = le32_to_cpu(es->s_first_data_block);
+		goal = le32toh(es->s_first_data_block);
 	ext4_get_group_no_and_offset(sb, goal, &group, &block);
 
 	/* set up allocation goals */
@@ -5172,9 +5172,9 @@ static ext4_fsblk_t ext4_mb_new_blocks_simple(handle_t *handle,
 	struct ext4_super_block *es = EXT4_SB(sb)->s_es;
 
 	goal = ar->goal;
-	if (goal < le32_to_cpu(es->s_first_data_block) ||
+	if (goal < le32toh(es->s_first_data_block) ||
 			goal >= ext4_blocks_count(es))
-		goal = le32_to_cpu(es->s_first_data_block);
+		goal = le32toh(es->s_first_data_block);
 
 	ar->len = 0;
 	ext4_get_group_no_and_offset(sb, goal, &group, &blkoff);
@@ -5810,7 +5810,7 @@ int ext4_trim_fs(struct super_block *sb, struct fstrim_range *range)
 	ext4_grpblk_t cnt = 0, first_cluster, last_cluster;
 	uint64_t start, end, minlen, trimmed = 0;
 	ext4_fsblk_t first_data_blk =
-			le32_to_cpu(EXT4_SB(sb)->s_es->s_first_data_block);
+			le32toh(EXT4_SB(sb)->s_es->s_first_data_block);
 	ext4_fsblk_t max_blks = ext4_blocks_count(EXT4_SB(sb)->s_es);
 	int ret = 0;
 

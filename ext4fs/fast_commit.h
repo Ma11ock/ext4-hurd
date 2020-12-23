@@ -151,7 +151,7 @@ struct ext4_fc_replay_state {
 		(u8 *)tl < (u8 *)end;					\
 		tl = (struct ext4_fc_tl *)((u8 *)tl +			\
 					sizeof(struct ext4_fc_tl) +	\
-					+ le16_to_cpu(tl->fc_len)))
+					+ le16toh(tl->fc_len)))
 
 
 #endif /* __FAST_COMMIT_H__ */

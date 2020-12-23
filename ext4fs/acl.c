@@ -25,7 +25,7 @@ ext4_acl_from_disk(const void *value, size_t size)
 	if (size < sizeof(ext4_acl_header))
 		 return ERR_PTR(-EINVAL);
 	if (((ext4_acl_header *)value)->a_version !=
-	    cpu_to_le32(EXT4_ACL_VERSION))
+	    htole32(EXT4_ACL_VERSION))
 		return ERR_PTR(-EINVAL);
 	value = (char *)value + sizeof(ext4_acl_header);
 	count = ext4_acl_count(size);
@@ -41,8 +41,8 @@ ext4_acl_from_disk(const void *value, size_t size)
 			(ext4_acl_entry *)value;
 		if ((char *)value + sizeof(ext4_acl_entry_short) > end)
 			goto fail;
-		acl->a_entries[n].e_tag  = le16_to_cpu(entry->e_tag);
-		acl->a_entries[n].e_perm = le16_to_cpu(entry->e_perm);
+		acl->a_entries[n].e_tag  = le16toh(entry->e_tag);
+		acl->a_entries[n].e_perm = le16toh(entry->e_perm);
 
 		switch (acl->a_entries[n].e_tag) {
 		case ACL_USER_OBJ:
@@ -59,7 +59,7 @@ ext4_acl_from_disk(const void *value, size_t size)
 				goto fail;
 			acl->a_entries[n].e_uid =
 				make_kuid(&init_user_ns,
-					  le32_to_cpu(entry->e_id));
+					  le32toh(entry->e_id));
 			break;
 		case ACL_GROUP:
 			value = (char *)value + sizeof(ext4_acl_entry);
@@ -67,7 +67,7 @@ ext4_acl_from_disk(const void *value, size_t size)
 				goto fail;
 			acl->a_entries[n].e_gid =
 				make_kgid(&init_user_ns,
-					  le32_to_cpu(entry->e_id));
+					  le32toh(entry->e_id));
 			break;
 
 		default:
@@ -98,21 +98,21 @@ ext4_acl_to_disk(const struct posix_acl *acl, size_t *size)
 			sizeof(ext4_acl_entry), GFP_NOFS);
 	if (!ext_acl)
 		return ERR_PTR(-ENOMEM);
-	ext_acl->a_version = cpu_to_le32(EXT4_ACL_VERSION);
+	ext_acl->a_version = htole32(EXT4_ACL_VERSION);
 	e = (char *)ext_acl + sizeof(ext4_acl_header);
 	for (n = 0; n < acl->a_count; n++) {
 		const struct posix_acl_entry *acl_e = &acl->a_entries[n];
 		ext4_acl_entry *entry = (ext4_acl_entry *)e;
-		entry->e_tag  = cpu_to_le16(acl_e->e_tag);
-		entry->e_perm = cpu_to_le16(acl_e->e_perm);
+		entry->e_tag  = htole16(acl_e->e_tag);
+		entry->e_perm = htole16(acl_e->e_perm);
 		switch (acl_e->e_tag) {
 		case ACL_USER:
-			entry->e_id = cpu_to_le32(
+			entry->e_id = htole32(
 				from_kuid(&init_user_ns, acl_e->e_uid));
 			e += sizeof(ext4_acl_entry);
 			break;
 		case ACL_GROUP:
-			entry->e_id = cpu_to_le32(
+			entry->e_id = htole32(
 				from_kgid(&init_user_ns, acl_e->e_gid));
 			e += sizeof(ext4_acl_entry);
 			break;

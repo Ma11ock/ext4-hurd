@@ -616,9 +616,9 @@ static u8 *ext4_fc_reserve_space(struct super_block *sb, int len, u32 *crc)
 	}
 	/* Need to add PAD tag */
 	tl = (struct ext4_fc_tl *)(sbi->s_fc_bh->b_data + off);
-	tl->fc_tag = cpu_to_le16(EXT4_FC_TAG_PAD);
+	tl->fc_tag = htole16(EXT4_FC_TAG_PAD);
 	pad_len = bsize - off - 1 - sizeof(struct ext4_fc_tl);
-	tl->fc_len = cpu_to_le16(pad_len);
+	tl->fc_len = htole16(pad_len);
 	if (crc)
 		*crc = ext4_chksum(sbi, *crc, tl, sizeof(*tl));
 	if (pad_len > 0)
@@ -668,16 +668,16 @@ static int ext4_fc_write_tail(struct super_block *sb, u32 crc)
 
 	off = sbi->s_fc_bytes % bsize;
 
-	tl.fc_tag = cpu_to_le16(EXT4_FC_TAG_TAIL);
-	tl.fc_len = cpu_to_le16(bsize - off - 1 + sizeof(struct ext4_fc_tail));
+	tl.fc_tag = htole16(EXT4_FC_TAG_TAIL);
+	tl.fc_len = htole16(bsize - off - 1 + sizeof(struct ext4_fc_tail));
 	sbi->s_fc_bytes = round_up(sbi->s_fc_bytes, bsize);
 
 	ext4_fc_memcpy(sb, dst, &tl, sizeof(tl), &crc);
 	dst += sizeof(tl);
-	tail.fc_tid = cpu_to_le32(sbi->s_journal->j_running_transaction->t_tid);
+	tail.fc_tid = htole32(sbi->s_journal->j_running_transaction->t_tid);
 	ext4_fc_memcpy(sb, dst, &tail.fc_tid, sizeof(tail.fc_tid), &crc);
 	dst += sizeof(tail.fc_tid);
-	tail.fc_crc = cpu_to_le32(crc);
+	tail.fc_crc = htole32(crc);
 	ext4_fc_memcpy(sb, dst, &tail.fc_crc, sizeof(tail.fc_crc), NULL);
 
 	ext4_fc_submit_bh(sb);
@@ -699,8 +699,8 @@ static bool ext4_fc_add_tlv(struct super_block *sb, u16 tag, u16 len, u8 *val,
 	if (!dst)
 		return false;
 
-	tl.fc_tag = cpu_to_le16(tag);
-	tl.fc_len = cpu_to_le16(len);
+	tl.fc_tag = htole16(tag);
+	tl.fc_len = htole16(len);
 
 	ext4_fc_memcpy(sb, dst, &tl, sizeof(tl), crc);
 	ext4_fc_memcpy(sb, dst + sizeof(tl), val, len, crc);
@@ -722,10 +722,10 @@ static  bool ext4_fc_add_dentry_tlv(struct super_block *sb, u16 tag,
 	if (!dst)
 		return false;
 
-	fcd.fc_parent_ino = cpu_to_le32(parent_ino);
-	fcd.fc_ino = cpu_to_le32(ino);
-	tl.fc_tag = cpu_to_le16(tag);
-	tl.fc_len = cpu_to_le16(sizeof(fcd) + dlen);
+	fcd.fc_parent_ino = htole32(parent_ino);
+	fcd.fc_ino = htole32(ino);
+	tl.fc_tag = htole16(tag);
+	tl.fc_len = htole16(sizeof(fcd) + dlen);
 	ext4_fc_memcpy(sb, dst, &tl, sizeof(tl), crc);
 	dst += sizeof(tl);
 	ext4_fc_memcpy(sb, dst, &fcd, sizeof(fcd), crc);
@@ -757,9 +757,9 @@ static int ext4_fc_write_inode(struct inode *inode, u32 *crc)
 	if (EXT4_INODE_SIZE(inode->i_sb) > EXT4_GOOD_OLD_INODE_SIZE)
 		inode_len += ei->i_extra_isize;
 
-	fc_inode.fc_ino = cpu_to_le32(inode->i_ino);
-	tl.fc_tag = cpu_to_le16(EXT4_FC_TAG_INODE);
-	tl.fc_len = cpu_to_le16(inode_len + sizeof(fc_inode.fc_ino));
+	fc_inode.fc_ino = htole32(inode->i_ino);
+	tl.fc_tag = htole16(EXT4_FC_TAG_INODE);
+	tl.fc_len = htole16(inode_len + sizeof(fc_inode.fc_ino));
 
 	dst = ext4_fc_reserve_space(inode->i_sb,
 			sizeof(tl) + inode_len + sizeof(fc_inode.fc_ino), crc);
@@ -820,17 +820,17 @@ static int ext4_fc_write_inode_data(struct inode *inode, u32 *crc)
 		}
 
 		if (ret == 0) {
-			lrange.fc_ino = cpu_to_le32(inode->i_ino);
-			lrange.fc_lblk = cpu_to_le32(map.m_lblk);
-			lrange.fc_len = cpu_to_le32(map.m_len);
+			lrange.fc_ino = htole32(inode->i_ino);
+			lrange.fc_lblk = htole32(map.m_lblk);
+			lrange.fc_len = htole32(map.m_len);
 			if (!ext4_fc_add_tlv(inode->i_sb, EXT4_FC_TAG_DEL_RANGE,
 					    sizeof(lrange), (u8 *)&lrange, crc))
 				return -ENOSPC;
 		} else {
-			fc_ext.fc_ino = cpu_to_le32(inode->i_ino);
+			fc_ext.fc_ino = htole32(inode->i_ino);
 			ex = (struct ext4_extent *)&fc_ext.fc_ex;
-			ex->ee_block = cpu_to_le32(map.m_lblk);
-			ex->ee_len = cpu_to_le16(map.m_len);
+			ex->ee_block = htole32(map.m_lblk);
+			ex->ee_len = htole16(map.m_len);
 			ext4_ext_store_pblock(ex, map.m_pblk);
 			if (map.m_flags & EXT4_MAP_UNWRITTEN)
 				ext4_ext_mark_unwritten(ex);
@@ -1023,8 +1023,8 @@ static int ext4_fc_perform_commit(journal_t *journal)
 		 * Add a head tag only if this is the first fast commit
 		 * in this TID.
 		 */
-		head.fc_features = cpu_to_le32(EXT4_FC_SUPPORTED_FEATURES);
-		head.fc_tid = cpu_to_le32(
+		head.fc_features = htole32(EXT4_FC_SUPPORTED_FEATURES);
+		head.fc_tid = htole32(
 			sbi->s_journal->j_running_transaction->t_tid);
 		if (!ext4_fc_add_tlv(sb, EXT4_FC_TAG_HEAD, sizeof(head),
 			(u8 *)&head, &crc))
@@ -1223,7 +1223,7 @@ static void ext4_fc_cleanup(journal_t *journal, int full)
 /* Get length of a particular tlv */
 static inline int ext4_fc_tag_len(struct ext4_fc_tl *tl)
 {
-	return le16_to_cpu(tl->fc_len);
+	return le16toh(tl->fc_len);
 }
 
 /* Get a pointer to "value" of a tlv */
@@ -1245,8 +1245,8 @@ static inline void tl_to_darg(struct dentry_info_args *darg,
 
 	fcd = (struct ext4_fc_dentry_info *)ext4_fc_tag_val(tl);
 
-	darg->parent_ino = le32_to_cpu(fcd->fc_parent_ino);
-	darg->ino = le32_to_cpu(fcd->fc_ino);
+	darg->parent_ino = le32toh(fcd->fc_parent_ino);
+	darg->ino = le32toh(fcd->fc_ino);
 	darg->dname = fcd->fc_dname;
 	darg->dname_len = ext4_fc_tag_len(tl) -
 			sizeof(struct ext4_fc_dentry_info);
@@ -1408,12 +1408,12 @@ static int ext4_fc_replay_inode(struct super_block *sb, struct ext4_fc_tl *tl)
 	struct ext4_inode *raw_fc_inode;
 	struct inode *inode = NULL;
 	struct ext4_iloc iloc;
-	int inode_len, ino, ret, tag = le16_to_cpu(tl->fc_tag);
+	int inode_len, ino, ret, tag = le16toh(tl->fc_tag);
 	struct ext4_extent_header *eh;
 
 	fc_inode = (struct ext4_fc_inode *)ext4_fc_tag_val(tl);
 
-	ino = le32_to_cpu(fc_inode->fc_ino);
+	ino = le32toh(fc_inode->fc_ino);
 	trace_ext4_fc_replay(sb, tag, ino, 0, 0);
 
 	inode = ext4_iget(sb, ino, EXT4_IGET_NORMAL);
@@ -1435,17 +1435,17 @@ static int ext4_fc_replay_inode(struct super_block *sb, struct ext4_fc_tl *tl)
 	memcpy(raw_inode, raw_fc_inode, offsetof(struct ext4_inode, i_block));
 	memcpy(&raw_inode->i_generation, &raw_fc_inode->i_generation,
 		inode_len - offsetof(struct ext4_inode, i_generation));
-	if (le32_to_cpu(raw_inode->i_flags) & EXT4_EXTENTS_FL) {
+	if (le32toh(raw_inode->i_flags) & EXT4_EXTENTS_FL) {
 		eh = (struct ext4_extent_header *)(&raw_inode->i_block[0]);
 		if (eh->eh_magic != EXT4_EXT_MAGIC) {
 			memset(eh, 0, sizeof(*eh));
 			eh->eh_magic = EXT4_EXT_MAGIC;
-			eh->eh_max = cpu_to_le16(
+			eh->eh_max = htole16(
 				(sizeof(raw_inode->i_block) -
 				 sizeof(struct ext4_extent_header))
 				 / sizeof(struct ext4_extent));
 		}
-	} else if (le32_to_cpu(raw_inode->i_flags) & EXT4_INLINE_DATA_FL) {
+	} else if (le32toh(raw_inode->i_flags) & EXT4_INLINE_DATA_FL) {
 		memcpy(raw_inode->i_block, raw_fc_inode->i_block,
 			sizeof(raw_inode->i_block));
 	}
@@ -1475,7 +1475,7 @@ static int ext4_fc_replay_inode(struct super_block *sb, struct ext4_fc_tl *tl)
 	 */
 	ext4_ext_replay_set_iblocks(inode);
 
-	inode->i_generation = le32_to_cpu(ext4_raw_inode(&iloc)->i_generation);
+	inode->i_generation = le32toh(ext4_raw_inode(&iloc)->i_generation);
 	ext4_reset_inode_seed(inode);
 
 	ext4_inode_csum_set(inode, ext4_raw_inode(&iloc), EXT4_I(inode));
@@ -1599,10 +1599,10 @@ static int ext4_fc_replay_add_range(struct super_block *sb,
 	ex = (struct ext4_extent *)&fc_add_ex->fc_ex;
 
 	trace_ext4_fc_replay(sb, EXT4_FC_TAG_ADD_RANGE,
-		le32_to_cpu(fc_add_ex->fc_ino), le32_to_cpu(ex->ee_block),
+		le32toh(fc_add_ex->fc_ino), le32toh(ex->ee_block),
 		ext4_ext_get_actual_len(ex));
 
-	inode = ext4_iget(sb, le32_to_cpu(fc_add_ex->fc_ino),
+	inode = ext4_iget(sb, le32toh(fc_add_ex->fc_ino),
 				EXT4_IGET_NORMAL);
 	if (IS_ERR_OR_NULL(inode)) {
 		jbd_debug(1, "Inode not found.");
@@ -1611,7 +1611,7 @@ static int ext4_fc_replay_add_range(struct super_block *sb,
 
 	ret = ext4_fc_record_modified_inode(sb, inode->i_ino);
 
-	start = le32_to_cpu(ex->ee_block);
+	start = le32toh(ex->ee_block);
 	start_pblk = ext4_ext_pblock(ex);
 	len = ext4_ext_get_actual_len(ex);
 
@@ -1640,10 +1640,10 @@ static int ext4_fc_replay_add_range(struct super_block *sb,
 				return 0;
 			}
 			memset(&newex, 0, sizeof(newex));
-			newex.ee_block = cpu_to_le32(cur);
+			newex.ee_block = htole32(cur);
 			ext4_ext_store_pblock(
 				&newex, start_pblk + cur - start);
-			newex.ee_len = cpu_to_le16(map.m_len);
+			newex.ee_len = htole16(map.m_len);
 			if (ext4_ext_is_unwritten(ex))
 				ext4_ext_mark_unwritten(&newex);
 			down_write(&EXT4_I(inode)->i_data_sem);
@@ -1721,23 +1721,23 @@ ext4_fc_replay_del_range(struct super_block *sb, struct ext4_fc_tl *tl)
 	int ret;
 
 	lrange = (struct ext4_fc_del_range *)ext4_fc_tag_val(tl);
-	cur = le32_to_cpu(lrange->fc_lblk);
-	remaining = le32_to_cpu(lrange->fc_len);
+	cur = le32toh(lrange->fc_lblk);
+	remaining = le32toh(lrange->fc_len);
 
 	trace_ext4_fc_replay(sb, EXT4_FC_TAG_DEL_RANGE,
-		le32_to_cpu(lrange->fc_ino), cur, remaining);
+		le32toh(lrange->fc_ino), cur, remaining);
 
-	inode = ext4_iget(sb, le32_to_cpu(lrange->fc_ino), EXT4_IGET_NORMAL);
+	inode = ext4_iget(sb, le32toh(lrange->fc_ino), EXT4_IGET_NORMAL);
 	if (IS_ERR_OR_NULL(inode)) {
-		jbd_debug(1, "Inode %d not found", le32_to_cpu(lrange->fc_ino));
+		jbd_debug(1, "Inode %d not found", le32toh(lrange->fc_ino));
 		return 0;
 	}
 
 	ret = ext4_fc_record_modified_inode(sb, inode->i_ino);
 
 	jbd_debug(1, "DEL_RANGE, inode %ld, lblk %d, len %d\n",
-			inode->i_ino, le32_to_cpu(lrange->fc_lblk),
-			le32_to_cpu(lrange->fc_len));
+			inode->i_ino, le32toh(lrange->fc_lblk),
+			le32toh(lrange->fc_len));
 	while (remaining > 0) {
 		map.m_lblk = cur;
 		map.m_len = remaining;
@@ -1758,8 +1758,8 @@ ext4_fc_replay_del_range(struct super_block *sb, struct ext4_fc_tl *tl)
 	}
 
 	ret = ext4_punch_hole(inode,
-		le32_to_cpu(lrange->fc_lblk) << sb->s_blocksize_bits,
-		le32_to_cpu(lrange->fc_len) <<  sb->s_blocksize_bits);
+		le32toh(lrange->fc_lblk) << sb->s_blocksize_bits,
+		le32toh(lrange->fc_len) <<  sb->s_blocksize_bits);
 	if (ret)
 		jbd_debug(1, "ext4_punch_hole returned %d", ret);
 	ext4_ext_replay_shrink_inode(inode,
@@ -1921,7 +1921,7 @@ static int ext4_fc_replay_scan(journal_t *journal,
 		state->fc_regions_valid = state->fc_regions_used =
 			state->fc_regions_size = 0;
 		/* Check if we can stop early */
-		if (le16_to_cpu(((struct ext4_fc_tl *)start)->fc_tag)
+		if (le16toh(((struct ext4_fc_tl *)start)->fc_tag)
 			!= EXT4_FC_TAG_HEAD)
 			return 0;
 	}
@@ -1934,14 +1934,14 @@ static int ext4_fc_replay_scan(journal_t *journal,
 	state->fc_replay_expected_off++;
 	fc_for_each_tl(start, end, tl) {
 		jbd_debug(3, "Scan phase, tag:%s, blk %lld\n",
-			  tag2str(le16_to_cpu(tl->fc_tag)), bh->b_blocknr);
-		switch (le16_to_cpu(tl->fc_tag)) {
+			  tag2str(le16toh(tl->fc_tag)), bh->b_blocknr);
+		switch (le16toh(tl->fc_tag)) {
 		case EXT4_FC_TAG_ADD_RANGE:
 			ext = (struct ext4_fc_add_range *)ext4_fc_tag_val(tl);
 			ex = (struct ext4_extent *)&ext->fc_ex;
 			ret = ext4_fc_record_regions(sb,
-				le32_to_cpu(ext->fc_ino),
-				le32_to_cpu(ex->ee_block), ext4_ext_pblock(ex),
+				le32toh(ext->fc_ino),
+				le32toh(ex->ee_block), ext4_ext_pblock(ex),
 				ext4_ext_get_actual_len(ex));
 			if (ret < 0)
 				break;
@@ -1964,8 +1964,8 @@ static int ext4_fc_replay_scan(journal_t *journal,
 						sizeof(*tl) +
 						offsetof(struct ext4_fc_tail,
 						fc_crc));
-			if (le32_to_cpu(tail->fc_tid) == expected_tid &&
-				le32_to_cpu(tail->fc_crc) == state->fc_crc) {
+			if (le32toh(tail->fc_tid) == expected_tid &&
+				le32toh(tail->fc_crc) == state->fc_crc) {
 				state->fc_replay_num_tags = state->fc_cur_tag;
 				state->fc_regions_valid =
 					state->fc_regions_used;
@@ -1977,12 +1977,12 @@ static int ext4_fc_replay_scan(journal_t *journal,
 			break;
 		case EXT4_FC_TAG_HEAD:
 			head = (struct ext4_fc_head *)ext4_fc_tag_val(tl);
-			if (le32_to_cpu(head->fc_features) &
+			if (le32toh(head->fc_features) &
 				~EXT4_FC_SUPPORTED_FEATURES) {
 				ret = -EOPNOTSUPP;
 				break;
 			}
-			if (le32_to_cpu(head->fc_tid) != expected_tid) {
+			if (le32toh(head->fc_tid) != expected_tid) {
 				ret = JBD2_FC_REPLAY_STOP;
 				break;
 			}
@@ -2050,9 +2050,9 @@ static int ext4_fc_replay(journal_t *journal, struct buffer_head *bh,
 			break;
 		}
 		jbd_debug(3, "Replay phase, tag:%s\n",
-				tag2str(le16_to_cpu(tl->fc_tag)));
+				tag2str(le16toh(tl->fc_tag)));
 		state->fc_replay_num_tags--;
-		switch (le16_to_cpu(tl->fc_tag)) {
+		switch (le16toh(tl->fc_tag)) {
 		case EXT4_FC_TAG_LINK:
 			ret = ext4_fc_replay_link(sb, tl);
 			break;
@@ -2079,12 +2079,12 @@ static int ext4_fc_replay(journal_t *journal, struct buffer_head *bh,
 			trace_ext4_fc_replay(sb, EXT4_FC_TAG_TAIL, 0,
 				ext4_fc_tag_len(tl), 0);
 			tail = (struct ext4_fc_tail *)ext4_fc_tag_val(tl);
-			WARN_ON(le32_to_cpu(tail->fc_tid) != expected_tid);
+			WARN_ON(le32toh(tail->fc_tid) != expected_tid);
 			break;
 		case EXT4_FC_TAG_HEAD:
 			break;
 		default:
-			trace_ext4_fc_replay(sb, le16_to_cpu(tl->fc_tag), 0,
+			trace_ext4_fc_replay(sb, le16toh(tl->fc_tag), 0,
 				ext4_fc_tag_len(tl), 0);
 			ret = -ECANCELED;
 			break;

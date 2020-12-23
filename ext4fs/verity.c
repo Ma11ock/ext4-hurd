@@ -181,7 +181,7 @@ static int ext4_write_verity_descriptor(struct inode *inode, const void *desc,
 	const u64 desc_pos = round_up(ext4_verity_metadata_pos(inode) +
 				      merkle_tree_size, i_blocksize(inode));
 	const u64 desc_end = desc_pos + desc_size;
-	const __le32 desc_size_disk = cpu_to_le32(desc_size);
+	const __le32 desc_size_disk = htole32(desc_size);
 	const u64 desc_size_pos = round_up(desc_end + sizeof(desc_size_disk),
 					   i_blocksize(inode)) -
 				  sizeof(desc_size_disk);
@@ -287,7 +287,7 @@ static int ext4_get_verity_descriptor_location(struct inode *inode,
 		return -EFSCORRUPTED;
 	}
 
-	end_lblk = le32_to_cpu(last_extent->ee_block) +
+	end_lblk = le32toh(last_extent->ee_block) +
 		   ext4_ext_get_actual_len(last_extent);
 	desc_size_pos = (u64)end_lblk << inode->i_blkbits;
 	ext4_ext_drop_refs(path);
@@ -301,7 +301,7 @@ static int ext4_get_verity_descriptor_location(struct inode *inode,
 			     desc_size_pos);
 	if (err)
 		return err;
-	desc_size = le32_to_cpu(desc_size_disk);
+	desc_size = le32toh(desc_size_disk);
 
 	/*
 	 * The descriptor is stored just before the desc_size_disk, but starting

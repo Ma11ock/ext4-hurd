@@ -32,6 +32,7 @@
 #include <assert-backtrace.h>
 #include <pthread.h>
 #include <sys/mman.h>
+#include <endian.h>
 
 #define __hurd__		/* Enable some hurd-specific fields.  */
 
@@ -620,5 +621,20 @@ error_t ext4_free_xattr_block (struct node *np);
  * XXX: Remove this in Hurd 1.0 (or 0.10, or whatever follows 0.9).
  */
 extern int use_xattr_translator_records;
+
+/* ---------------------------------------------------------------- */
+/* Helper Functions. */
+
+/* Adds a little-endian 32 bit integer VAR to whatever HOSTVAL is on the host machine. */
+static inline void le32addh(__le32 *var, u32 hostval)
+{
+  *var = htole32(le32toh(*var) + hostval);
+}
+
+/* Adds a little-endian 16 bit integer VAR to whatever HOSTVAL is on the host machine. */
+static inline void le16addh(__le16 *var, u16 hostval)
+{
+  *var = htole16(le16toh(*var) + hostval);
+}
 
 #endif

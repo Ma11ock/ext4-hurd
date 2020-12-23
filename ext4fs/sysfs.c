@@ -353,7 +353,7 @@ static void *calc_ptr(struct ext4_attr *a, struct ext4_sb_info *sbi)
 static ssize_t __print_tstamp(char *buf, __le32 lo, __u8 hi)
 {
 	return snprintf(buf, PAGE_SIZE, "%lld\n",
-			((time64_t)hi << 32) + le32_to_cpu(lo));
+			((time64_t)hi << 32) + le32toh(lo));
 }
 
 #define print_tstamp(buf, es, tstamp) \
@@ -386,7 +386,7 @@ static ssize_t ext4_attr_show(struct kobject *kobj,
 			return 0;
 		if (a->attr_ptr == ptr_ext4_super_block_offset)
 			return snprintf(buf, PAGE_SIZE, "%u\n",
-					le32_to_cpup(ptr));
+					le32tohp(ptr));
 		else
 			return snprintf(buf, PAGE_SIZE, "%u\n",
 					*((unsigned int *) ptr));
@@ -405,7 +405,7 @@ static ssize_t ext4_attr_show(struct kobject *kobj,
 			return 0;
 		if (a->attr_ptr == ptr_ext4_super_block_offset)
 			return snprintf(buf, PAGE_SIZE, "%llu\n",
-					le64_to_cpup(ptr));
+					le64tohp(ptr));
 		else
 			return snprintf(buf, PAGE_SIZE, "%llu\n",
 					*((unsigned long long *) ptr));
@@ -453,7 +453,7 @@ static ssize_t ext4_attr_store(struct kobject *kobj,
 		if (ret)
 			return ret;
 		if (a->attr_ptr == ptr_ext4_super_block_offset)
-			*((__le32 *) ptr) = cpu_to_le32(t);
+			*((__le32 *) ptr) = htole32(t);
 		else
 			*((unsigned int *) ptr) = t;
 		return len;

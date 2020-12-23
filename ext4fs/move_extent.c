@@ -627,7 +627,7 @@ ext4_move_extents(struct file *o_filp, struct file *d_filp, __u64 orig_blk,
 			goto out;
 		ex = path[path->p_depth].p_ext;
 		next_blk = ext4_ext_next_allocated_block(path);
-		cur_blk = le32_to_cpu(ex->ee_block);
+		cur_blk = le32toh(ex->ee_block);
 		cur_len = ext4_ext_get_actual_len(ex);
 		/* Check hole before the start pos */
 		if (cur_blk + cur_len - 1 < o_start) {

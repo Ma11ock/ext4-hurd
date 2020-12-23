@@ -55,7 +55,7 @@ static __le32 ext4_extent_block_csum(struct inode *inode,
 
 	csum = ext4_chksum(sbi, ei->i_csum_seed, (__u8 *)eh,
 			   EXT4_EXTENT_TAIL_OFFSET(eh));
-	return cpu_to_le32(csum);
+	return htole32(csum);
 }
 
 static int ext4_extent_block_csum_verify(struct inode *inode,
@@ -202,7 +202,7 @@ static ext4_fsblk_t ext4_ext_find_goal(struct inode *inode,
 		ex = path[depth].p_ext;
 		if (ex) {
 			ext4_fsblk_t ext_pblk = ext4_ext_pblock(ex);
-			ext4_lblk_t ext_block = le32_to_cpu(ex->ee_block);
+			ext4_lblk_t ext_block = le32toh(ex->ee_block);
 
 			if (block > ext_block)
 				return ext_pblk + (block - ext_block);
@@ -230,7 +230,7 @@ ext4_ext_new_meta_block(handle_t *handle, struct inode *inode,
 {
 	ext4_fsblk_t goal, newblock;
 
-	goal = ext4_ext_find_goal(inode, path, le32_to_cpu(ex->ee_block));
+	goal = ext4_ext_find_goal(inode, path, le32toh(ex->ee_block));
 	newblock = ext4_new_meta_blocks(handle, inode, goal, flags,
 					NULL, err);
 	return newblock;
@@ -331,7 +331,7 @@ static int ext4_valid_extent(struct inode *inode, struct ext4_extent *ext)
 {
 	ext4_fsblk_t block = ext4_ext_pblock(ext);
 	int len = ext4_ext_get_actual_len(ext);
-	ext4_lblk_t lblock = le32_to_cpu(ext->ee_block);
+	ext4_lblk_t lblock = le32toh(ext->ee_block);
 
 	/*
 	 * We allow neither:
@@ -359,7 +359,7 @@ static int ext4_valid_extent_entries(struct inode *inode,
 	if (eh->eh_entries == 0)
 		return 1;
 
-	entries = le16_to_cpu(eh->eh_entries);
+	entries = le16toh(eh->eh_entries);
 
 	if (depth == 0) {
 		/* leaf entries */
@@ -372,7 +372,7 @@ static int ext4_valid_extent_entries(struct inode *inode,
 				return 0;
 
 			/* Check for overlapping extents */
-			lblock = le32_to_cpu(ext->ee_block);
+			lblock = le32toh(ext->ee_block);
 			len = ext4_ext_get_actual_len(ext);
 			if ((lblock <= prev) && prev) {
 				*pblk = ext4_ext_pblock(ext);
@@ -405,7 +405,7 @@ static int __ext4_ext_check(const char *function, unsigned int line,
 		error_msg = "invalid magic";
 		goto corrupted;
 	}
-	if (unlikely(le16_to_cpu(eh->eh_depth) != depth)) {
+	if (unlikely(le16toh(eh->eh_depth) != depth)) {
 		error_msg = "unexpected eh_depth";
 		goto corrupted;
 	}
@@ -414,11 +414,11 @@ static int __ext4_ext_check(const char *function, unsigned int line,
 		goto corrupted;
 	}
 	max = ext4_ext_max_entries(inode, depth);
-	if (unlikely(le16_to_cpu(eh->eh_max) > max)) {
+	if (unlikely(le16toh(eh->eh_max) > max)) {
 		error_msg = "too large eh_max";
 		goto corrupted;
 	}
-	if (unlikely(le16_to_cpu(eh->eh_entries) > le16_to_cpu(eh->eh_max))) {
+	if (unlikely(le16toh(eh->eh_entries) > le16toh(eh->eh_max))) {
 		error_msg = "invalid eh_entries";
 		goto corrupted;
 	}
@@ -444,10 +444,10 @@ corrupted:
 			     "pblk %llu bad header/extent: %s - magic %x, "
 			     "entries %u, max %u(%u), depth %u(%u)",
 			     (unsigned long long) pblk, error_msg,
-			     le16_to_cpu(eh->eh_magic),
-			     le16_to_cpu(eh->eh_entries),
-			     le16_to_cpu(eh->eh_max),
-			     max, le16_to_cpu(eh->eh_depth), depth);
+			     le16toh(eh->eh_magic),
+			     le16toh(eh->eh_entries),
+			     le16toh(eh->eh_max),
+			     max, le16toh(eh->eh_depth), depth);
 	return err;
 }
 
@@ -466,9 +466,9 @@ static void ext4_cache_extents(struct inode *inode,
 	ext4_lblk_t prev = 0;
 	int i;
 
-	for (i = le16_to_cpu(eh->eh_entries); i > 0; i--, ex++) {
+	for (i = le16toh(eh->eh_entries); i > 0; i--, ex++) {
 		unsigned int status = EXTENT_STATUS_WRITTEN;
-		ext4_lblk_t lblk = le32_to_cpu(ex->ee_block);
+		ext4_lblk_t lblk = le32toh(ex->ee_block);
 		int len = ext4_ext_get_actual_len(ex);
 
 		if (prev && (prev != lblk))
@@ -607,11 +607,11 @@ static void ext4_ext_show_path(struct inode *inode, struct ext4_ext_path *path)
 	for (k = 0; k <= l; k++, path++) {
 		if (path->p_idx) {
 			ext_debug(inode, "  %d->%llu",
-				  le32_to_cpu(path->p_idx->ei_block),
+				  le32toh(path->p_idx->ei_block),
 				  ext4_idx_pblock(path->p_idx));
 		} else if (path->p_ext) {
 			ext_debug(inode, "  %d:[%d]%d:%llu ",
-				  le32_to_cpu(path->p_ext->ee_block),
+				  le32toh(path->p_ext->ee_block),
 				  ext4_ext_is_unwritten(path->p_ext),
 				  ext4_ext_get_actual_len(path->p_ext),
 				  ext4_ext_pblock(path->p_ext));
@@ -636,8 +636,8 @@ static void ext4_ext_show_leaf(struct inode *inode, struct ext4_ext_path *path)
 
 	ext_debug(inode, "Displaying leaf extents\n");
 
-	for (i = 0; i < le16_to_cpu(eh->eh_entries); i++, ex++) {
-		ext_debug(inode, "%d:[%d]%d:%llu ", le32_to_cpu(ex->ee_block),
+	for (i = 0; i < le16toh(eh->eh_entries); i++, ex++) {
+		ext_debug(inode, "%d:[%d]%d:%llu ", le32toh(ex->ee_block),
 			  ext4_ext_is_unwritten(ex),
 			  ext4_ext_get_actual_len(ex), ext4_ext_pblock(ex));
 	}
@@ -655,7 +655,7 @@ static void ext4_ext_show_move(struct inode *inode, struct ext4_ext_path *path,
 		idx = path[level].p_idx;
 		while (idx <= EXT_MAX_INDEX(path[level].p_hdr)) {
 			ext_debug(inode, "%d: move %d:%llu in new index %llu\n",
-				  level, le32_to_cpu(idx->ei_block),
+				  level, le32toh(idx->ei_block),
 				  ext4_idx_pblock(idx), newblock);
 			idx++;
 		}
@@ -666,7 +666,7 @@ static void ext4_ext_show_move(struct inode *inode, struct ext4_ext_path *path,
 	ex = path[depth].p_ext;
 	while (ex <= EXT_MAX_EXTENT(path[depth].p_hdr)) {
 		ext_debug(inode, "move %d:%llu:[%d]%d in new leaf %llu\n",
-				le32_to_cpu(ex->ee_block),
+				le32toh(ex->ee_block),
 				ext4_ext_pblock(ex),
 				ext4_ext_is_unwritten(ex),
 				ext4_ext_get_actual_len(ex),
@@ -713,17 +713,17 @@ ext4_ext_binsearch_idx(struct inode *inode,
 	r = EXT_LAST_INDEX(eh);
 	while (l <= r) {
 		m = l + (r - l) / 2;
-		if (block < le32_to_cpu(m->ei_block))
+		if (block < le32toh(m->ei_block))
 			r = m - 1;
 		else
 			l = m + 1;
 		ext_debug(inode, "%p(%u):%p(%u):%p(%u) ", l,
-			  le32_to_cpu(l->ei_block), m, le32_to_cpu(m->ei_block),
-			  r, le32_to_cpu(r->ei_block));
+			  le32toh(l->ei_block), m, le32toh(m->ei_block),
+			  r, le32toh(r->ei_block));
 	}
 
 	path->p_idx = l - 1;
-	ext_debug(inode, "  -> %u->%lld ", le32_to_cpu(path->p_idx->ei_block),
+	ext_debug(inode, "  -> %u->%lld ", le32toh(path->p_idx->ei_block),
 		  ext4_idx_pblock(path->p_idx));
 
 #ifdef CHECK_BINSEARCH
@@ -732,19 +732,19 @@ ext4_ext_binsearch_idx(struct inode *inode,
 		int k;
 
 		chix = ix = EXT_FIRST_INDEX(eh);
-		for (k = 0; k < le16_to_cpu(eh->eh_entries); k++, ix++) {
-			if (k != 0 && le32_to_cpu(ix->ei_block) <=
-			    le32_to_cpu(ix[-1].ei_block)) {
+		for (k = 0; k < le16toh(eh->eh_entries); k++, ix++) {
+			if (k != 0 && le32toh(ix->ei_block) <=
+			    le32toh(ix[-1].ei_block)) {
 				printk(KERN_DEBUG "k=%d, ix=0x%p, "
 				       "first=0x%p\n", k,
 				       ix, EXT_FIRST_INDEX(eh));
 				printk(KERN_DEBUG "%u <= %u\n",
-				       le32_to_cpu(ix->ei_block),
-				       le32_to_cpu(ix[-1].ei_block));
+				       le32toh(ix->ei_block),
+				       le32toh(ix[-1].ei_block));
 			}
-			BUG_ON(k && le32_to_cpu(ix->ei_block)
-					   <= le32_to_cpu(ix[-1].ei_block));
-			if (block < le32_to_cpu(ix->ei_block))
+			BUG_ON(k && le32toh(ix->ei_block)
+					   <= le32toh(ix[-1].ei_block));
+			if (block < le32toh(ix->ei_block))
 				break;
 			chix = ix;
 		}
@@ -781,18 +781,18 @@ ext4_ext_binsearch(struct inode *inode,
 
 	while (l <= r) {
 		m = l + (r - l) / 2;
-		if (block < le32_to_cpu(m->ee_block))
+		if (block < le32toh(m->ee_block))
 			r = m - 1;
 		else
 			l = m + 1;
 		ext_debug(inode, "%p(%u):%p(%u):%p(%u) ", l,
-			  le32_to_cpu(l->ee_block), m, le32_to_cpu(m->ee_block),
-			  r, le32_to_cpu(r->ee_block));
+			  le32toh(l->ee_block), m, le32toh(m->ee_block),
+			  r, le32toh(r->ee_block));
 	}
 
 	path->p_ext = l - 1;
 	ext_debug(inode, "  -> %d:%llu:[%d]%d ",
-			le32_to_cpu(path->p_ext->ee_block),
+			le32toh(path->p_ext->ee_block),
 			ext4_ext_pblock(path->p_ext),
 			ext4_ext_is_unwritten(path->p_ext),
 			ext4_ext_get_actual_len(path->p_ext));
@@ -803,10 +803,10 @@ ext4_ext_binsearch(struct inode *inode,
 		int k;
 
 		chex = ex = EXT_FIRST_EXTENT(eh);
-		for (k = 0; k < le16_to_cpu(eh->eh_entries); k++, ex++) {
-			BUG_ON(k && le32_to_cpu(ex->ee_block)
-					  <= le32_to_cpu(ex[-1].ee_block));
-			if (block < le32_to_cpu(ex->ee_block))
+		for (k = 0; k < le16toh(eh->eh_entries); k++, ex++) {
+			BUG_ON(k && le32toh(ex->ee_block)
+					  <= le32toh(ex[-1].ee_block));
+			if (block < le32toh(ex->ee_block))
 				break;
 			chex = ex;
 		}
@@ -824,7 +824,7 @@ void ext4_ext_tree_init(handle_t *handle, struct inode *inode)
 	eh->eh_depth = 0;
 	eh->eh_entries = 0;
 	eh->eh_magic = EXT4_EXT_MAGIC;
-	eh->eh_max = cpu_to_le16(ext4_ext_space_root(inode, 0));
+	eh->eh_max = htole16(ext4_ext_space_root(inode, 0));
 	ext4_mark_inode_dirty(handle, inode);
 }
 
@@ -875,7 +875,7 @@ ext4_find_extent(struct inode *inode, ext4_lblk_t block,
 	/* walk through the tree */
 	while (i) {
 		ext_debug(inode, "depth %d: num %d, max %d\n",
-			  ppos, le16_to_cpu(eh->eh_entries), le16_to_cpu(eh->eh_max));
+			  ppos, le16toh(eh->eh_entries), le16toh(eh->eh_max));
 
 		ext4_ext_binsearch_idx(inode, path + ppos, block);
 		path[ppos].p_block = ext4_idx_pblock(path[ppos].p_idx);
@@ -933,23 +933,23 @@ static int ext4_ext_insert_index(handle_t *handle, struct inode *inode,
 	if (err)
 		return err;
 
-	if (unlikely(logical == le32_to_cpu(curp->p_idx->ei_block))) {
+	if (unlikely(logical == le32toh(curp->p_idx->ei_block))) {
 		EXT4_ERROR_INODE(inode,
 				 "logical %d == ei_block %d!",
-				 logical, le32_to_cpu(curp->p_idx->ei_block));
+				 logical, le32toh(curp->p_idx->ei_block));
 		return -EFSCORRUPTED;
 	}
 
-	if (unlikely(le16_to_cpu(curp->p_hdr->eh_entries)
-			     >= le16_to_cpu(curp->p_hdr->eh_max))) {
+	if (unlikely(le16toh(curp->p_hdr->eh_entries)
+			     >= le16toh(curp->p_hdr->eh_max))) {
 		EXT4_ERROR_INODE(inode,
 				 "eh_entries %d >= eh_max %d!",
-				 le16_to_cpu(curp->p_hdr->eh_entries),
-				 le16_to_cpu(curp->p_hdr->eh_max));
+				 le16toh(curp->p_hdr->eh_entries),
+				 le16toh(curp->p_hdr->eh_max));
 		return -EFSCORRUPTED;
 	}
 
-	if (logical > le32_to_cpu(curp->p_idx->ei_block)) {
+	if (logical > le32toh(curp->p_idx->ei_block)) {
 		/* insert after */
 		ext_debug(inode, "insert new index %d after: %llu\n",
 			  logical, ptr);
@@ -975,7 +975,7 @@ static int ext4_ext_insert_index(handle_t *handle, struct inode *inode,
 		return -EFSCORRUPTED;
 	}
 
-	ix->ei_block = cpu_to_le32(logical);
+	ix->ei_block = htole32(logical);
 	ext4_idx_store_pblock(ix, ptr);
 	le16_add_cpu(&curp->p_hdr->eh_entries, 1);
 
@@ -1033,12 +1033,12 @@ static int ext4_ext_split(handle_t *handle, struct inode *inode,
 		border = path[depth].p_ext[1].ee_block;
 		ext_debug(inode, "leaf will be split."
 				" next leaf starts at %d\n",
-				  le32_to_cpu(border));
+				  le32toh(border));
 	} else {
 		border = newext->ee_block;
 		ext_debug(inode, "leaf will be added."
 				" next leaf starts at %d\n",
-				le32_to_cpu(border));
+				le32toh(border));
 	}
 
 	/*
@@ -1087,7 +1087,7 @@ static int ext4_ext_split(handle_t *handle, struct inode *inode,
 
 	neh = ext_block_hdr(bh);
 	neh->eh_entries = 0;
-	neh->eh_max = cpu_to_le16(ext4_ext_space_block(inode, 0));
+	neh->eh_max = htole16(ext4_ext_space_block(inode, 0));
 	neh->eh_magic = EXT4_EXT_MAGIC;
 	neh->eh_depth = 0;
 
@@ -1112,7 +1112,7 @@ static int ext4_ext_split(handle_t *handle, struct inode *inode,
 
 	/* zero out unused area in the extent block */
 	ext_size = sizeof(struct ext4_extent_header) +
-		sizeof(struct ext4_extent) * le16_to_cpu(neh->eh_entries);
+		sizeof(struct ext4_extent) * le16toh(neh->eh_entries);
 	memset(bh->b_data + ext_size, 0, inode->i_sb->s_blocksize - ext_size);
 	ext4_extent_block_csum_set(inode, neh);
 	set_buffer_uptodate(bh);
@@ -1163,23 +1163,23 @@ static int ext4_ext_split(handle_t *handle, struct inode *inode,
 			goto cleanup;
 
 		neh = ext_block_hdr(bh);
-		neh->eh_entries = cpu_to_le16(1);
+		neh->eh_entries = htole16(1);
 		neh->eh_magic = EXT4_EXT_MAGIC;
-		neh->eh_max = cpu_to_le16(ext4_ext_space_block_idx(inode, 0));
-		neh->eh_depth = cpu_to_le16(depth - i);
+		neh->eh_max = htole16(ext4_ext_space_block_idx(inode, 0));
+		neh->eh_depth = htole16(depth - i);
 		fidx = EXT_FIRST_INDEX(neh);
 		fidx->ei_block = border;
 		ext4_idx_store_pblock(fidx, oldblock);
 
 		ext_debug(inode, "int.index at %d (block %llu): %u -> %llu\n",
-				i, newblock, le32_to_cpu(border), oldblock);
+				i, newblock, le32toh(border), oldblock);
 
 		/* move remainder of path[i] to the new index block */
 		if (unlikely(EXT_MAX_INDEX(path[i].p_hdr) !=
 					EXT_LAST_INDEX(path[i].p_hdr))) {
 			EXT4_ERROR_INODE(inode,
 					 "EXT_MAX_INDEX != EXT_LAST_INDEX ee_block %d!",
-					 le32_to_cpu(path[i].p_ext->ee_block));
+					 le32toh(path[i].p_ext->ee_block));
 			err = -EFSCORRUPTED;
 			goto cleanup;
 		}
@@ -1195,7 +1195,7 @@ static int ext4_ext_split(handle_t *handle, struct inode *inode,
 		}
 		/* zero out unused area in the extent block */
 		ext_size = sizeof(struct ext4_extent_header) +
-		   (sizeof(struct ext4_extent) * le16_to_cpu(neh->eh_entries));
+		   (sizeof(struct ext4_extent) * le16toh(neh->eh_entries));
 		memset(bh->b_data + ext_size, 0,
 			inode->i_sb->s_blocksize - ext_size);
 		ext4_extent_block_csum_set(inode, neh);
@@ -1224,7 +1224,7 @@ static int ext4_ext_split(handle_t *handle, struct inode *inode,
 
 	/* insert new index */
 	err = ext4_ext_insert_index(handle, inode, path + at,
-				    le32_to_cpu(border), newblock);
+				    le32toh(border), newblock);
 
 cleanup:
 	if (bh) {
@@ -1268,7 +1268,7 @@ static int ext4_ext_grow_indepth(handle_t *handle, struct inode *inode,
 	/* Try to prepend new index to old one */
 	if (ext_depth(inode))
 		goal = ext4_idx_pblock(EXT_FIRST_INDEX(ext_inode_hdr(inode)));
-	if (goal > le32_to_cpu(es->s_first_data_block)) {
+	if (goal > le32toh(es->s_first_data_block)) {
 		flags |= EXT4_MB_HINT_TRY_GOAL;
 		goal--;
 	} else
@@ -1300,9 +1300,9 @@ static int ext4_ext_grow_indepth(handle_t *handle, struct inode *inode,
 	/* old root could have indexes or leaves
 	 * so calculate e_max right way */
 	if (ext_depth(inode))
-		neh->eh_max = cpu_to_le16(ext4_ext_space_block_idx(inode, 0));
+		neh->eh_max = htole16(ext4_ext_space_block_idx(inode, 0));
 	else
-		neh->eh_max = cpu_to_le16(ext4_ext_space_block(inode, 0));
+		neh->eh_max = htole16(ext4_ext_space_block(inode, 0));
 	neh->eh_magic = EXT4_EXT_MAGIC;
 	ext4_extent_block_csum_set(inode, neh);
 	set_buffer_uptodate(bh);
@@ -1314,17 +1314,17 @@ static int ext4_ext_grow_indepth(handle_t *handle, struct inode *inode,
 
 	/* Update top-level index: num,max,pointer */
 	neh = ext_inode_hdr(inode);
-	neh->eh_entries = cpu_to_le16(1);
+	neh->eh_entries = htole16(1);
 	ext4_idx_store_pblock(EXT_FIRST_INDEX(neh), newblock);
 	if (neh->eh_depth == 0) {
 		/* Root extent block becomes index block */
-		neh->eh_max = cpu_to_le16(ext4_ext_space_root_idx(inode, 0));
+		neh->eh_max = htole16(ext4_ext_space_root_idx(inode, 0));
 		EXT_FIRST_INDEX(neh)->ei_block =
 			EXT_FIRST_EXTENT(neh)->ee_block;
 	}
 	ext_debug(inode, "new root: num %d(%d), lblock %d, ptr %llu\n",
-		  le16_to_cpu(neh->eh_entries), le16_to_cpu(neh->eh_max),
-		  le32_to_cpu(EXT_FIRST_INDEX(neh)->ei_block),
+		  le16toh(neh->eh_entries), le16toh(neh->eh_max),
+		  le32toh(EXT_FIRST_INDEX(neh)->ei_block),
 		  ext4_idx_pblock(EXT_FIRST_INDEX(neh)));
 
 	le16_add_cpu(&neh->eh_depth, 1);
@@ -1371,7 +1371,7 @@ repeat:
 
 		/* refill path */
 		path = ext4_find_extent(inode,
-				    (ext4_lblk_t)le32_to_cpu(newext->ee_block),
+				    (ext4_lblk_t)le32toh(newext->ee_block),
 				    ppath, gb_flags);
 		if (IS_ERR(path))
 			err = PTR_ERR(path);
@@ -1383,7 +1383,7 @@ repeat:
 
 		/* refill path */
 		path = ext4_find_extent(inode,
-				   (ext4_lblk_t)le32_to_cpu(newext->ee_block),
+				   (ext4_lblk_t)le32toh(newext->ee_block),
 				    ppath, gb_flags);
 		if (IS_ERR(path)) {
 			err = PTR_ERR(path);
@@ -1436,11 +1436,11 @@ static int ext4_ext_search_left(struct inode *inode,
 
 	ex = path[depth].p_ext;
 	ee_len = ext4_ext_get_actual_len(ex);
-	if (*logical < le32_to_cpu(ex->ee_block)) {
+	if (*logical < le32toh(ex->ee_block)) {
 		if (unlikely(EXT_FIRST_EXTENT(path[depth].p_hdr) != ex)) {
 			EXT4_ERROR_INODE(inode,
 					 "EXT_FIRST_EXTENT != ex *logical %d ee_block %d!",
-					 *logical, le32_to_cpu(ex->ee_block));
+					 *logical, le32toh(ex->ee_block));
 			return -EFSCORRUPTED;
 		}
 		while (--depth >= 0) {
@@ -1448,9 +1448,9 @@ static int ext4_ext_search_left(struct inode *inode,
 			if (unlikely(ix != EXT_FIRST_INDEX(path[depth].p_hdr))) {
 				EXT4_ERROR_INODE(inode,
 				  "ix (%d) != EXT_FIRST_INDEX (%d) (depth %d)!",
-				  ix != NULL ? le32_to_cpu(ix->ei_block) : 0,
+				  ix != NULL ? le32toh(ix->ei_block) : 0,
 				  EXT_FIRST_INDEX(path[depth].p_hdr) != NULL ?
-		le32_to_cpu(EXT_FIRST_INDEX(path[depth].p_hdr)->ei_block) : 0,
+		le32toh(EXT_FIRST_INDEX(path[depth].p_hdr)->ei_block) : 0,
 				  depth);
 				return -EFSCORRUPTED;
 			}
@@ -1458,14 +1458,14 @@ static int ext4_ext_search_left(struct inode *inode,
 		return 0;
 	}
 
-	if (unlikely(*logical < (le32_to_cpu(ex->ee_block) + ee_len))) {
+	if (unlikely(*logical < (le32toh(ex->ee_block) + ee_len))) {
 		EXT4_ERROR_INODE(inode,
 				 "logical %d < ee_block %d + ee_len %d!",
-				 *logical, le32_to_cpu(ex->ee_block), ee_len);
+				 *logical, le32toh(ex->ee_block), ee_len);
 		return -EFSCORRUPTED;
 	}
 
-	*logical = le32_to_cpu(ex->ee_block) + ee_len - 1;
+	*logical = le32toh(ex->ee_block) + ee_len - 1;
 	*phys = ext4_ext_pblock(ex) + ee_len - 1;
 	return 0;
 }
@@ -1506,7 +1506,7 @@ static int ext4_ext_search_right(struct inode *inode,
 
 	ex = path[depth].p_ext;
 	ee_len = ext4_ext_get_actual_len(ex);
-	if (*logical < le32_to_cpu(ex->ee_block)) {
+	if (*logical < le32toh(ex->ee_block)) {
 		if (unlikely(EXT_FIRST_EXTENT(path[depth].p_hdr) != ex)) {
 			EXT4_ERROR_INODE(inode,
 					 "first_extent(path[%d].p_hdr) != ex",
@@ -1525,10 +1525,10 @@ static int ext4_ext_search_right(struct inode *inode,
 		goto found_extent;
 	}
 
-	if (unlikely(*logical < (le32_to_cpu(ex->ee_block) + ee_len))) {
+	if (unlikely(*logical < (le32toh(ex->ee_block) + ee_len))) {
 		EXT4_ERROR_INODE(inode,
 				 "logical %d < ee_block %d + ee_len %d!",
-				 *logical, le32_to_cpu(ex->ee_block), ee_len);
+				 *logical, le32toh(ex->ee_block), ee_len);
 		return -EFSCORRUPTED;
 	}
 
@@ -1572,7 +1572,7 @@ got_index:
 	eh = ext_block_hdr(bh);
 	ex = EXT_FIRST_EXTENT(eh);
 found_extent:
-	*logical = le32_to_cpu(ex->ee_block);
+	*logical = le32toh(ex->ee_block);
 	*phys = ext4_ext_pblock(ex);
 	if (ret_ex)
 		*ret_ex = *ex;
@@ -1605,11 +1605,11 @@ ext4_ext_next_allocated_block(struct ext4_ext_path *path)
 		if (depth == path->p_depth) {
 			/* leaf */
 			if (p->p_ext && p->p_ext != EXT_LAST_EXTENT(p->p_hdr))
-				return le32_to_cpu(p->p_ext[1].ee_block);
+				return le32toh(p->p_ext[1].ee_block);
 		} else {
 			/* index */
 			if (p->p_idx != EXT_LAST_INDEX(p->p_hdr))
-				return le32_to_cpu(p->p_idx[1].ei_block);
+				return le32toh(p->p_idx[1].ei_block);
 		}
 		depth--;
 	}
@@ -1639,7 +1639,7 @@ static ext4_lblk_t ext4_ext_next_leaf_block(struct ext4_ext_path *path)
 		if (path[depth].p_idx !=
 				EXT_LAST_INDEX(path[depth].p_hdr))
 			return (ext4_lblk_t)
-				le32_to_cpu(path[depth].p_idx[1].ei_block);
+				le32toh(path[depth].p_idx[1].ei_block);
 		depth--;
 	}
 
@@ -1721,8 +1721,8 @@ static int ext4_can_extents_be_merged(struct inode *inode,
 	ext1_ee_len = ext4_ext_get_actual_len(ex1);
 	ext2_ee_len = ext4_ext_get_actual_len(ex2);
 
-	if (le32_to_cpu(ex1->ee_block) + ext1_ee_len !=
-			le32_to_cpu(ex2->ee_block))
+	if (le32toh(ex1->ee_block) + ext1_ee_len !=
+			le32toh(ex2->ee_block))
 		return 0;
 
 	if (ext1_ee_len + ext2_ee_len > EXT_INIT_MAX_LEN)
@@ -1765,7 +1765,7 @@ static int ext4_ext_try_to_merge_right(struct inode *inode,
 			break;
 		/* merge with next extent! */
 		unwritten = ext4_ext_is_unwritten(ex);
-		ex->ee_len = cpu_to_le16(ext4_ext_get_actual_len(ex)
+		ex->ee_len = htole16(ext4_ext_get_actual_len(ex)
 				+ ext4_ext_get_actual_len(ex + 1));
 		if (unwritten)
 			ext4_ext_mark_unwritten(ex);
@@ -1798,8 +1798,8 @@ static void ext4_ext_try_to_merge_up(handle_t *handle,
 	ext4_fsblk_t blk;
 
 	if ((path[0].p_depth != 1) ||
-	    (le16_to_cpu(path[0].p_hdr->eh_entries) != 1) ||
-	    (le16_to_cpu(path[1].p_hdr->eh_entries) > max_root))
+	    (le16toh(path[0].p_hdr->eh_entries) != 1) ||
+	    (le16toh(path[1].p_hdr->eh_entries) > max_root))
 		return;
 
 	/*
@@ -1815,7 +1815,7 @@ static void ext4_ext_try_to_merge_up(handle_t *handle,
 	 * Copy the extent data up to the inode
 	 */
 	blk = ext4_idx_pblock(path[0].p_idx);
-	s = le16_to_cpu(path[1].p_hdr->eh_entries) *
+	s = le16toh(path[1].p_hdr->eh_entries) *
 		sizeof(struct ext4_extent_idx);
 	s += sizeof(struct ext4_extent_header);
 
@@ -1824,7 +1824,7 @@ static void ext4_ext_try_to_merge_up(handle_t *handle,
 	path[0].p_depth = 0;
 	path[0].p_ext = EXT_FIRST_EXTENT(path[0].p_hdr) +
 		(path[1].p_ext - EXT_FIRST_EXTENT(path[1].p_hdr));
-	path[0].p_hdr->eh_max = cpu_to_le16(max_root);
+	path[0].p_hdr->eh_max = htole16(max_root);
 
 	brelse(path[1].p_bh);
 	ext4_free_blocks(handle, inode, NULL, blk, 1,
@@ -1874,12 +1874,12 @@ static unsigned int ext4_ext_check_overlap(struct ext4_sb_info *sbi,
 	unsigned int depth, len1;
 	unsigned int ret = 0;
 
-	b1 = le32_to_cpu(newext->ee_block);
+	b1 = le32toh(newext->ee_block);
 	len1 = ext4_ext_get_actual_len(newext);
 	depth = ext_depth(inode);
 	if (!path[depth].p_ext)
 		goto out;
-	b2 = EXT4_LBLK_CMASK(sbi, le32_to_cpu(path[depth].p_ext->ee_block));
+	b2 = EXT4_LBLK_CMASK(sbi, le32toh(path[depth].p_ext->ee_block));
 
 	/*
 	 * get the next allocated block if the extent in the path
@@ -1895,13 +1895,13 @@ static unsigned int ext4_ext_check_overlap(struct ext4_sb_info *sbi,
 	/* check for wrap through zero on extent logical start block*/
 	if (b1 + len1 < b1) {
 		len1 = EXT_MAX_BLOCKS - b1;
-		newext->ee_len = cpu_to_le16(len1);
+		newext->ee_len = htole16(len1);
 		ret = 1;
 	}
 
 	/* check for overlap */
 	if (b1 + len1 > b2) {
-		newext->ee_len = cpu_to_le16(b2 - b1);
+		newext->ee_len = htole16(b2 - b1);
 		ret = 1;
 	}
 out:
@@ -1952,15 +1952,15 @@ int ext4_ext_insert_extent(handle_t *handle, struct inode *inode,
 		 * will make merging more effective.
 		 */
 		if (ex < EXT_LAST_EXTENT(eh) &&
-		    (le32_to_cpu(ex->ee_block) +
+		    (le32toh(ex->ee_block) +
 		    ext4_ext_get_actual_len(ex) <
-		    le32_to_cpu(newext->ee_block))) {
+		    le32toh(newext->ee_block))) {
 			ex += 1;
 			goto prepend;
 		} else if ((ex > EXT_FIRST_EXTENT(eh)) &&
-			   (le32_to_cpu(newext->ee_block) +
+			   (le32toh(newext->ee_block) +
 			   ext4_ext_get_actual_len(newext) <
-			   le32_to_cpu(ex->ee_block)))
+			   le32toh(ex->ee_block)))
 			ex -= 1;
 
 		/* Try to append newex to the ex */
@@ -1969,7 +1969,7 @@ int ext4_ext_insert_extent(handle_t *handle, struct inode *inode,
 				  "(from %llu)\n",
 				  ext4_ext_is_unwritten(newext),
 				  ext4_ext_get_actual_len(newext),
-				  le32_to_cpu(ex->ee_block),
+				  le32toh(ex->ee_block),
 				  ext4_ext_is_unwritten(ex),
 				  ext4_ext_get_actual_len(ex),
 				  ext4_ext_pblock(ex));
@@ -1978,7 +1978,7 @@ int ext4_ext_insert_extent(handle_t *handle, struct inode *inode,
 			if (err)
 				return err;
 			unwritten = ext4_ext_is_unwritten(ex);
-			ex->ee_len = cpu_to_le16(ext4_ext_get_actual_len(ex)
+			ex->ee_len = htole16(ext4_ext_get_actual_len(ex)
 					+ ext4_ext_get_actual_len(newext));
 			if (unwritten)
 				ext4_ext_mark_unwritten(ex);
@@ -1992,10 +1992,10 @@ prepend:
 		if (ext4_can_extents_be_merged(inode, newext, ex)) {
 			ext_debug(inode, "prepend %u[%d]%d block to %u:[%d]%d"
 				  "(from %llu)\n",
-				  le32_to_cpu(newext->ee_block),
+				  le32toh(newext->ee_block),
 				  ext4_ext_is_unwritten(newext),
 				  ext4_ext_get_actual_len(newext),
-				  le32_to_cpu(ex->ee_block),
+				  le32toh(ex->ee_block),
 				  ext4_ext_is_unwritten(ex),
 				  ext4_ext_get_actual_len(ex),
 				  ext4_ext_pblock(ex));
@@ -2007,7 +2007,7 @@ prepend:
 			unwritten = ext4_ext_is_unwritten(ex);
 			ex->ee_block = newext->ee_block;
 			ext4_ext_store_pblock(ex, ext4_ext_pblock(newext));
-			ex->ee_len = cpu_to_le16(ext4_ext_get_actual_len(ex)
+			ex->ee_len = htole16(ext4_ext_get_actual_len(ex)
 					+ ext4_ext_get_actual_len(newext));
 			if (unwritten)
 				ext4_ext_mark_unwritten(ex);
@@ -2019,13 +2019,13 @@ prepend:
 
 	depth = ext_depth(inode);
 	eh = path[depth].p_hdr;
-	if (le16_to_cpu(eh->eh_entries) < le16_to_cpu(eh->eh_max))
+	if (le16toh(eh->eh_entries) < le16toh(eh->eh_max))
 		goto has_space;
 
 	/* probably next leaf has space for us? */
 	fex = EXT_LAST_EXTENT(eh);
 	next = EXT_MAX_BLOCKS;
-	if (le32_to_cpu(newext->ee_block) > le32_to_cpu(fex->ee_block))
+	if (le32toh(newext->ee_block) > le32toh(fex->ee_block))
 		next = ext4_ext_next_leaf_block(path);
 	if (next != EXT_MAX_BLOCKS) {
 		ext_debug(inode, "next leaf block - %u\n", next);
@@ -2035,14 +2035,14 @@ prepend:
 			return PTR_ERR(npath);
 		BUG_ON(npath->p_depth != path->p_depth);
 		eh = npath[depth].p_hdr;
-		if (le16_to_cpu(eh->eh_entries) < le16_to_cpu(eh->eh_max)) {
+		if (le16toh(eh->eh_entries) < le16toh(eh->eh_max)) {
 			ext_debug(inode, "next leaf isn't full(%d)\n",
-				  le16_to_cpu(eh->eh_entries));
+				  le16toh(eh->eh_entries));
 			path = npath;
 			goto has_space;
 		}
 		ext_debug(inode, "next leaf has no free space(%d,%d)\n",
-			  le16_to_cpu(eh->eh_entries), le16_to_cpu(eh->eh_max));
+			  le16toh(eh->eh_entries), le16toh(eh->eh_max));
 	}
 
 	/*
@@ -2068,18 +2068,18 @@ has_space:
 	if (!nearex) {
 		/* there is no extent in this leaf, create first one */
 		ext_debug(inode, "first extent in the leaf: %u:%llu:[%d]%d\n",
-				le32_to_cpu(newext->ee_block),
+				le32toh(newext->ee_block),
 				ext4_ext_pblock(newext),
 				ext4_ext_is_unwritten(newext),
 				ext4_ext_get_actual_len(newext));
 		nearex = EXT_FIRST_EXTENT(eh);
 	} else {
-		if (le32_to_cpu(newext->ee_block)
-			   > le32_to_cpu(nearex->ee_block)) {
+		if (le32toh(newext->ee_block)
+			   > le32toh(nearex->ee_block)) {
 			/* Insert after */
 			ext_debug(inode, "insert %u:%llu:[%d]%d before: "
 					"nearest %p\n",
-					le32_to_cpu(newext->ee_block),
+					le32toh(newext->ee_block),
 					ext4_ext_pblock(newext),
 					ext4_ext_is_unwritten(newext),
 					ext4_ext_get_actual_len(newext),
@@ -2090,7 +2090,7 @@ has_space:
 			BUG_ON(newext->ee_block == nearex->ee_block);
 			ext_debug(inode, "insert %u:%llu:[%d]%d after: "
 					"nearest %p\n",
-					le32_to_cpu(newext->ee_block),
+					le32toh(newext->ee_block),
 					ext4_ext_pblock(newext),
 					ext4_ext_is_unwritten(newext),
 					ext4_ext_get_actual_len(newext),
@@ -2100,7 +2100,7 @@ has_space:
 		if (len > 0) {
 			ext_debug(inode, "insert %u:%llu:[%d]%d: "
 					"move %d extents from 0x%p to 0x%p\n",
-					le32_to_cpu(newext->ee_block),
+					le32toh(newext->ee_block),
 					ext4_ext_pblock(newext),
 					ext4_ext_is_unwritten(newext),
 					ext4_ext_get_actual_len(newext),
@@ -2207,13 +2207,13 @@ static ext4_lblk_t ext4_ext_determine_hole(struct inode *inode,
 		/* there is no extent yet, so gap is [0;-] */
 		*lblk = 0;
 		len = EXT_MAX_BLOCKS;
-	} else if (*lblk < le32_to_cpu(ex->ee_block)) {
-		len = le32_to_cpu(ex->ee_block) - *lblk;
-	} else if (*lblk >= le32_to_cpu(ex->ee_block)
+	} else if (*lblk < le32toh(ex->ee_block)) {
+		len = le32toh(ex->ee_block) - *lblk;
+	} else if (*lblk >= le32toh(ex->ee_block)
 			+ ext4_ext_get_actual_len(ex)) {
 		ext4_lblk_t next;
 
-		*lblk = le32_to_cpu(ex->ee_block) + ext4_ext_get_actual_len(ex);
+		*lblk = le32toh(ex->ee_block) + ext4_ext_get_actual_len(ex);
 		next = ext4_ext_next_allocated_block(path);
 		BUG_ON(next == *lblk);
 		len = next - *lblk;
@@ -2315,8 +2315,8 @@ int ext4_ext_calc_credits_for_single_extent(struct inode *inode, int nrblocks,
 		int ret = 0;
 
 		/* probably there is space in leaf? */
-		if (le16_to_cpu(path[depth].p_hdr->eh_entries)
-				< le16_to_cpu(path[depth].p_hdr->eh_max)) {
+		if (le16toh(path[depth].p_hdr->eh_entries)
+				< le16toh(path[depth].p_hdr->eh_max)) {
 
 			/*
 			 *  There are some space in the leaf tree, no
@@ -2416,11 +2416,11 @@ static int ext4_remove_blocks(handle_t *handle, struct inode *inode,
 	int flags;
 
 	/* only extent tail removal is allowed */
-	if (from < le32_to_cpu(ex->ee_block) ||
-	    to != le32_to_cpu(ex->ee_block) + ee_len - 1) {
+	if (from < le32toh(ex->ee_block) ||
+	    to != le32toh(ex->ee_block) + ee_len - 1) {
 		ext4_error(sbi->s_sb,
 			   "strange request: removal(2) %u-%u from %u:%u",
-			   from, to, le32_to_cpu(ex->ee_block), ee_len);
+			   from, to, le32toh(ex->ee_block), ee_len);
 		return 0;
 	}
 
@@ -2460,7 +2460,7 @@ static int ext4_remove_blocks(handle_t *handle, struct inode *inode,
 		partial->state = initial;
 	}
 
-	num = le32_to_cpu(ex->ee_block) + ee_len - from;
+	num = le32toh(ex->ee_block) + ee_len - from;
 	pblk = ext4_ext_pblock(ex) + ee_len - num;
 
 	/*
@@ -2571,7 +2571,7 @@ ext4_ext_rm_leaf(handle_t *handle, struct inode *inode,
 	if (!ex)
 		ex = EXT_LAST_EXTENT(eh);
 
-	ex_ee_block = le32_to_cpu(ex->ee_block);
+	ex_ee_block = le32toh(ex->ee_block);
 	ex_ee_len = ext4_ext_get_actual_len(ex);
 
 	trace_ext4_ext_rm_leaf(inode, start, ex, partial);
@@ -2609,7 +2609,7 @@ ext4_ext_rm_leaf(handle_t *handle, struct inode *inode,
 				partial->state = nofree;
 			}
 			ex--;
-			ex_ee_block = le32_to_cpu(ex->ee_block);
+			ex_ee_block = le32toh(ex->ee_block);
 			ex_ee_len = ext4_ext_get_actual_len(ex);
 			continue;
 		} else if (b != ex_ee_block + ex_ee_len - 1) {
@@ -2669,7 +2669,7 @@ ext4_ext_rm_leaf(handle_t *handle, struct inode *inode,
 			/* this extent is removed; mark slot entirely unused */
 			ext4_ext_store_pblock(ex, 0);
 
-		ex->ee_len = cpu_to_le16(num);
+		ex->ee_len = htole16(num);
 		/*
 		 * Do not mark unwritten if all the blocks in the
 		 * extent have been removed.
@@ -2704,7 +2704,7 @@ ext4_ext_rm_leaf(handle_t *handle, struct inode *inode,
 		ext_debug(inode, "new extent: %u:%u:%llu\n", ex_ee_block, num,
 				ext4_ext_pblock(ex));
 		ex--;
-		ex_ee_block = le32_to_cpu(ex->ee_block);
+		ex_ee_block = le32toh(ex->ee_block);
 		ex_ee_len = ext4_ext_get_actual_len(ex);
 	}
 
@@ -2759,7 +2759,7 @@ ext4_ext_more_to_rm(struct ext4_ext_path *path)
 	 * if truncate on deeper level happened, it wasn't partial,
 	 * so we have to consider current index for truncation
 	 */
-	if (le16_to_cpu(path->p_hdr->eh_entries) == path->p_block)
+	if (le16toh(path->p_hdr->eh_entries) == path->p_block)
 		return 0;
 	return 1;
 }
@@ -2822,7 +2822,7 @@ again:
 			goto out;
 		}
 
-		ee_block = le32_to_cpu(ex->ee_block);
+		ee_block = le32toh(ex->ee_block);
 		ex_end = ee_block + ext4_ext_get_actual_len(ex) - 1;
 
 		/*
@@ -2887,7 +2887,7 @@ again:
 		int k = i = depth;
 		while (--k > 0)
 			path[k].p_block =
-				le16_to_cpu(path[k].p_hdr->eh_entries)+1;
+				le16toh(path[k].p_hdr->eh_entries)+1;
 	} else {
 		path = kcalloc(depth + 1, sizeof(struct ext4_ext_path),
 			       GFP_NOFS | __GFP_NOFAIL);
@@ -2927,10 +2927,10 @@ again:
 		if (!path[i].p_idx) {
 			/* this level hasn't been touched yet */
 			path[i].p_idx = EXT_LAST_INDEX(path[i].p_hdr);
-			path[i].p_block = le16_to_cpu(path[i].p_hdr->eh_entries)+1;
+			path[i].p_block = le16toh(path[i].p_hdr->eh_entries)+1;
 			ext_debug(inode, "init index ptr: hdr 0x%p, num %d\n",
 				  path[i].p_hdr,
-				  le16_to_cpu(path[i].p_hdr->eh_entries));
+				  le16toh(path[i].p_hdr->eh_entries));
 		} else {
 			/* we were already here, see at next index */
 			path[i].p_idx--;
@@ -2964,7 +2964,7 @@ again:
 
 			/* save actual number of indexes since this
 			 * number is changed at the next iteration */
-			path[i].p_block = le16_to_cpu(path[i].p_hdr->eh_entries);
+			path[i].p_block = le16toh(path[i].p_hdr->eh_entries);
 			i++;
 		} else {
 			/* we finished processing this index, go up */
@@ -3012,7 +3012,7 @@ again:
 		if (err == 0) {
 			ext_inode_hdr(inode)->eh_depth = 0;
 			ext_inode_hdr(inode)->eh_max =
-				cpu_to_le16(ext4_ext_space_root(inode, 0));
+				htole16(ext4_ext_space_root(inode, 0));
 			err = ext4_ext_dirty(handle, inode, path);
 		}
 	}
@@ -3084,7 +3084,7 @@ static int ext4_zeroout_es(struct inode *inode, struct ext4_extent *ex)
 	ext4_fsblk_t ee_pblock;
 	unsigned int ee_len;
 
-	ee_block  = le32_to_cpu(ex->ee_block);
+	ee_block  = le32toh(ex->ee_block);
 	ee_len    = ext4_ext_get_actual_len(ex);
 	ee_pblock = ext4_ext_pblock(ex);
 
@@ -3103,7 +3103,7 @@ static int ext4_ext_zeroout(struct inode *inode, struct ext4_extent *ex)
 
 	ee_len    = ext4_ext_get_actual_len(ex);
 	ee_pblock = ext4_ext_pblock(ex);
-	return ext4_issue_zeroout(inode, le32_to_cpu(ex->ee_block), ee_pblock,
+	return ext4_issue_zeroout(inode, le32toh(ex->ee_block), ee_pblock,
 				  ee_len);
 }
 
@@ -3152,7 +3152,7 @@ static int ext4_split_extent_at(handle_t *handle,
 
 	depth = ext_depth(inode);
 	ex = path[depth].p_ext;
-	ee_block = le32_to_cpu(ex->ee_block);
+	ee_block = le32toh(ex->ee_block);
 	ee_len = ext4_ext_get_actual_len(ex);
 	newblock = split - ee_block + ext4_ext_pblock(ex);
 
@@ -3186,7 +3186,7 @@ static int ext4_split_extent_at(handle_t *handle,
 
 	/* case a */
 	memcpy(&orig_ex, ex, sizeof(orig_ex));
-	ex->ee_len = cpu_to_le16(split - ee_block);
+	ex->ee_len = htole16(split - ee_block);
 	if (split_flag & EXT4_EXT_MARK_UNWRIT1)
 		ext4_ext_mark_unwritten(ex);
 
@@ -3199,8 +3199,8 @@ static int ext4_split_extent_at(handle_t *handle,
 		goto fix_extent_len;
 
 	ex2 = &newex;
-	ex2->ee_block = cpu_to_le32(split);
-	ex2->ee_len   = cpu_to_le16(ee_len - (split - ee_block));
+	ex2->ee_block = htole32(split);
+	ex2->ee_len   = htole16(ee_len - (split - ee_block));
 	ext4_ext_store_pblock(ex2, newblock);
 	if (split_flag & EXT4_EXT_MARK_UNWRIT2)
 		ext4_ext_mark_unwritten(ex2);
@@ -3211,14 +3211,14 @@ static int ext4_split_extent_at(handle_t *handle,
 			if (split_flag & EXT4_EXT_DATA_VALID1) {
 				err = ext4_ext_zeroout(inode, ex2);
 				zero_ex.ee_block = ex2->ee_block;
-				zero_ex.ee_len = cpu_to_le16(
+				zero_ex.ee_len = htole16(
 						ext4_ext_get_actual_len(ex2));
 				ext4_ext_store_pblock(&zero_ex,
 						      ext4_ext_pblock(ex2));
 			} else {
 				err = ext4_ext_zeroout(inode, ex);
 				zero_ex.ee_block = ex->ee_block;
-				zero_ex.ee_len = cpu_to_le16(
+				zero_ex.ee_len = htole16(
 						ext4_ext_get_actual_len(ex));
 				ext4_ext_store_pblock(&zero_ex,
 						      ext4_ext_pblock(ex));
@@ -3226,7 +3226,7 @@ static int ext4_split_extent_at(handle_t *handle,
 		} else {
 			err = ext4_ext_zeroout(inode, &orig_ex);
 			zero_ex.ee_block = orig_ex.ee_block;
-			zero_ex.ee_len = cpu_to_le16(
+			zero_ex.ee_len = htole16(
 						ext4_ext_get_actual_len(&orig_ex));
 			ext4_ext_store_pblock(&zero_ex,
 					      ext4_ext_pblock(&orig_ex));
@@ -3235,7 +3235,7 @@ static int ext4_split_extent_at(handle_t *handle,
 		if (err)
 			goto fix_extent_len;
 		/* update the extent length and mark as initialized */
-		ex->ee_len = cpu_to_le16(ee_len);
+		ex->ee_len = htole16(ee_len);
 		ext4_ext_try_to_merge(handle, inode, path, ex);
 		err = ext4_ext_dirty(handle, inode, path + path->p_depth);
 		if (err)
@@ -3291,7 +3291,7 @@ static int ext4_split_extent(handle_t *handle,
 
 	depth = ext_depth(inode);
 	ex = path[depth].p_ext;
-	ee_block = le32_to_cpu(ex->ee_block);
+	ee_block = le32toh(ex->ee_block);
 	ee_len = ext4_ext_get_actual_len(ex);
 	unwritten = ext4_ext_is_unwritten(ex);
 
@@ -3395,7 +3395,7 @@ static int ext4_ext_convert_to_initialized(handle_t *handle,
 	depth = ext_depth(inode);
 	eh = path[depth].p_hdr;
 	ex = path[depth].p_ext;
-	ee_block = le32_to_cpu(ex->ee_block);
+	ee_block = le32toh(ex->ee_block);
 	ee_len = ext4_ext_get_actual_len(ex);
 	zero_ex1.ee_len = 0;
 	zero_ex2.ee_len = 0;
@@ -3430,7 +3430,7 @@ static int ext4_ext_convert_to_initialized(handle_t *handle,
 		unsigned int prev_len;
 
 		abut_ex = ex - 1;
-		prev_lblk = le32_to_cpu(abut_ex->ee_block);
+		prev_lblk = le32toh(abut_ex->ee_block);
 		prev_len = ext4_ext_get_actual_len(abut_ex);
 		prev_pblk = ext4_ext_pblock(abut_ex);
 		ee_pblk = ext4_ext_pblock(ex);
@@ -3456,13 +3456,13 @@ static int ext4_ext_convert_to_initialized(handle_t *handle,
 				map, ex, abut_ex);
 
 			/* Shift the start of ex by 'map_len' blocks */
-			ex->ee_block = cpu_to_le32(ee_block + map_len);
+			ex->ee_block = htole32(ee_block + map_len);
 			ext4_ext_store_pblock(ex, ee_pblk + map_len);
-			ex->ee_len = cpu_to_le16(ee_len - map_len);
+			ex->ee_len = htole16(ee_len - map_len);
 			ext4_ext_mark_unwritten(ex); /* Restore the flag */
 
 			/* Extend abut_ex by 'map_len' blocks */
-			abut_ex->ee_len = cpu_to_le16(prev_len + map_len);
+			abut_ex->ee_len = htole16(prev_len + map_len);
 
 			/* Result: number of initialized blocks past m_lblk */
 			allocated = map_len;
@@ -3476,7 +3476,7 @@ static int ext4_ext_convert_to_initialized(handle_t *handle,
 		unsigned int next_len;
 
 		abut_ex = ex + 1;
-		next_lblk = le32_to_cpu(abut_ex->ee_block);
+		next_lblk = le32toh(abut_ex->ee_block);
 		next_len = ext4_ext_get_actual_len(abut_ex);
 		next_pblk = ext4_ext_pblock(abut_ex);
 		ee_pblk = ext4_ext_pblock(ex);
@@ -3502,13 +3502,13 @@ static int ext4_ext_convert_to_initialized(handle_t *handle,
 				map, ex, abut_ex);
 
 			/* Shift the start of abut_ex by 'map_len' blocks */
-			abut_ex->ee_block = cpu_to_le32(next_lblk - map_len);
+			abut_ex->ee_block = htole32(next_lblk - map_len);
 			ext4_ext_store_pblock(abut_ex, next_pblk - map_len);
-			ex->ee_len = cpu_to_le16(ee_len - map_len);
+			ex->ee_len = htole16(ee_len - map_len);
 			ext4_ext_mark_unwritten(ex); /* Restore the flag */
 
 			/* Extend abut_ex by 'map_len' blocks */
-			abut_ex->ee_len = cpu_to_le16(next_len + map_len);
+			abut_ex->ee_len = htole16(next_len + map_len);
 
 			/* Result: number of initialized blocks past m_lblk */
 			allocated = map_len;
@@ -3553,10 +3553,10 @@ static int ext4_ext_convert_to_initialized(handle_t *handle,
 		if (allocated <= max_zeroout) {
 			/* case 3 or 5 */
 			zero_ex1.ee_block =
-				 cpu_to_le32(split_map.m_lblk +
+				 htole32(split_map.m_lblk +
 					     split_map.m_len);
 			zero_ex1.ee_len =
-				cpu_to_le16(allocated - split_map.m_len);
+				htole16(allocated - split_map.m_len);
 			ext4_ext_store_pblock(&zero_ex1,
 				ext4_ext_pblock(ex) + split_map.m_lblk +
 				split_map.m_len - ee_block);
@@ -3570,7 +3570,7 @@ static int ext4_ext_convert_to_initialized(handle_t *handle,
 			/* case 2 or 5 */
 			if (split_map.m_lblk != ee_block) {
 				zero_ex2.ee_block = ex->ee_block;
-				zero_ex2.ee_len = cpu_to_le16(split_map.m_lblk -
+				zero_ex2.ee_len = htole16(split_map.m_lblk -
 							ee_block);
 				ext4_ext_store_pblock(&zero_ex2,
 						      ext4_ext_pblock(ex));
@@ -3649,7 +3649,7 @@ static int ext4_split_convert_extents(handle_t *handle,
 	 */
 	depth = ext_depth(inode);
 	ex = path[depth].p_ext;
-	ee_block = le32_to_cpu(ex->ee_block);
+	ee_block = le32toh(ex->ee_block);
 	ee_len = ext4_ext_get_actual_len(ex);
 
 	/* Convert to unwritten */
@@ -3679,7 +3679,7 @@ static int ext4_convert_unwritten_extents_endio(handle_t *handle,
 
 	depth = ext_depth(inode);
 	ex = path[depth].p_ext;
-	ee_block = le32_to_cpu(ex->ee_block);
+	ee_block = le32toh(ex->ee_block);
 	ee_len = ext4_ext_get_actual_len(ex);
 
 	ext_debug(inode, "logical block %llu, max_blocks %u\n",
@@ -3749,7 +3749,7 @@ convert_initialized_extent(handle_t *handle, struct inode *inode,
 
 	depth = ext_depth(inode);
 	ex = path[depth].p_ext;
-	ee_block = le32_to_cpu(ex->ee_block);
+	ee_block = le32toh(ex->ee_block);
 	ee_len = ext4_ext_get_actual_len(ex);
 
 	ext_debug(inode, "logical block %llu, max_blocks %u\n",
@@ -3963,7 +3963,7 @@ static int get_implied_cluster_alloc(struct super_block *sb,
 	ext4_lblk_t c_offset = EXT4_LBLK_COFF(sbi, map->m_lblk);
 	ext4_lblk_t ex_cluster_start, ex_cluster_end;
 	ext4_lblk_t rr_cluster_start;
-	ext4_lblk_t ee_block = le32_to_cpu(ex->ee_block);
+	ext4_lblk_t ee_block = le32toh(ex->ee_block);
 	ext4_fsblk_t ee_start = ext4_ext_pblock(ex);
 	unsigned short ee_len = ext4_ext_get_actual_len(ex);
 
@@ -4076,7 +4076,7 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 
 	ex = path[depth].p_ext;
 	if (ex) {
-		ext4_lblk_t ee_block = le32_to_cpu(ex->ee_block);
+		ext4_lblk_t ee_block = le32toh(ex->ee_block);
 		ext4_fsblk_t ee_start = ext4_ext_pblock(ex);
 		unsigned short ee_len;
 
@@ -4154,7 +4154,7 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 	/*
 	 * Okay, we need to do block allocation.
 	 */
-	newex.ee_block = cpu_to_le32(map->m_lblk);
+	newex.ee_block = htole32(map->m_lblk);
 	cluster_offset = EXT4_LBLK_COFF(sbi, map->m_lblk);
 
 	/*
@@ -4201,7 +4201,7 @@ int ext4_ext_map_blocks(handle_t *handle, struct inode *inode,
 		map->m_len = EXT_UNWRITTEN_MAX_LEN;
 
 	/* Check if we can really insert (m_lblk)::(m_lblk + m_len) extent */
-	newex.ee_len = cpu_to_le16(map->m_len);
+	newex.ee_len = htole16(map->m_len);
 	err = ext4_ext_check_overlap(sbi, inode, &newex, path);
 	if (err)
 		allocated = ext4_ext_get_actual_len(&newex);
@@ -4249,7 +4249,7 @@ got_allocated_blocks:
 	/* try to insert new extent into found leaf and return */
 	pblk = newblock + offset;
 	ext4_ext_store_pblock(&newex, pblk);
-	newex.ee_len = cpu_to_le16(ar.len);
+	newex.ee_len = htole16(ar.len);
 	/* Mark unwritten */
 	if (flags & EXT4_GET_BLOCKS_UNWRIT_EXT) {
 		ext4_ext_mark_unwritten(&newex);
@@ -5105,7 +5105,7 @@ ext4_ext_shift_extents(struct inode *inode, handle_t *handle,
 	if (!extent)
 		goto out;
 
-	stop = le32_to_cpu(extent->ee_block);
+	stop = le32toh(extent->ee_block);
 
        /*
 	* For left shifts, make sure the hole on the left is big enough to
@@ -5120,8 +5120,8 @@ ext4_ext_shift_extents(struct inode *inode, handle_t *handle,
 		depth = path->p_depth;
 		extent =  path[depth].p_ext;
 		if (extent) {
-			ex_start = le32_to_cpu(extent->ee_block);
-			ex_end = le32_to_cpu(extent->ee_block) +
+			ex_start = le32toh(extent->ee_block);
+			ex_end = le32toh(extent->ee_block) +
 				ext4_ext_get_actual_len(extent);
 		} else {
 			ex_start = 0;
@@ -5169,7 +5169,7 @@ ext4_ext_shift_extents(struct inode *inode, handle_t *handle,
 			return -EFSCORRUPTED;
 		}
 		if (SHIFT == SHIFT_LEFT && *iterator >
-		    le32_to_cpu(extent->ee_block)) {
+		    le32toh(extent->ee_block)) {
 			/* Hole, move to the next extent */
 			if (extent < EXT_LAST_EXTENT(path[depth].p_hdr)) {
 				path[depth].p_ext++;
@@ -5181,17 +5181,17 @@ ext4_ext_shift_extents(struct inode *inode, handle_t *handle,
 
 		if (SHIFT == SHIFT_LEFT) {
 			extent = EXT_LAST_EXTENT(path[depth].p_hdr);
-			*iterator = le32_to_cpu(extent->ee_block) +
+			*iterator = le32toh(extent->ee_block) +
 					ext4_ext_get_actual_len(extent);
 		} else {
 			extent = EXT_FIRST_EXTENT(path[depth].p_hdr);
-			if (le32_to_cpu(extent->ee_block) > 0)
-				*iterator = le32_to_cpu(extent->ee_block) - 1;
+			if (le32toh(extent->ee_block) > 0)
+				*iterator = le32toh(extent->ee_block) - 1;
 			else
 				/* Beginning is reached, end of the loop */
 				iterator = NULL;
 			/* Update path extent in case we need to stop */
-			while (le32_to_cpu(extent->ee_block) < start)
+			while (le32toh(extent->ee_block) < start)
 				extent++;
 			path[depth].p_ext = extent;
 		}
@@ -5464,7 +5464,7 @@ static int ext4_insert_range(struct inode *inode, loff_t offset, loff_t len)
 	depth = ext_depth(inode);
 	extent = path[depth].p_ext;
 	if (extent) {
-		ee_start_lblk = le32_to_cpu(extent->ee_block);
+		ee_start_lblk = le32toh(extent->ee_block);
 		ee_len = ext4_ext_get_actual_len(extent);
 
 		/*
@@ -5592,8 +5592,8 @@ ext4_swap_extents(handle_t *handle, struct inode *inode1,
 		if (unlikely(!ex2 || !ex1))
 			goto finish;
 
-		e1_blk = le32_to_cpu(ex1->ee_block);
-		e2_blk = le32_to_cpu(ex2->ee_block);
+		e1_blk = le32toh(ex1->ee_block);
+		e2_blk = le32toh(ex2->ee_block);
 		e1_len = ext4_ext_get_actual_len(ex1);
 		e2_len = ext4_ext_get_actual_len(ex2);
 
@@ -5683,8 +5683,8 @@ ext4_swap_extents(handle_t *handle, struct inode *inode1,
 		tmp_ex = *ex1;
 		ext4_ext_store_pblock(ex1, ext4_ext_pblock(ex2));
 		ext4_ext_store_pblock(ex2, ext4_ext_pblock(&tmp_ex));
-		ex1->ee_len = cpu_to_le16(e2_len);
-		ex2->ee_len = cpu_to_le16(e1_len);
+		ex1->ee_len = htole16(e2_len);
+		ex2->ee_len = htole16(e1_len);
 		if (unwritten)
 			ext4_ext_mark_unwritten(ex2);
 		if (ext4_ext_is_unwritten(&tmp_ex))
@@ -5771,7 +5771,7 @@ int ext4_clu_mapped(struct inode *inode, ext4_lblk_t lclu)
 	if (extent == NULL)
 		goto out;
 
-	first_lblk = le32_to_cpu(extent->ee_block);
+	first_lblk = le32toh(extent->ee_block);
 	first_lclu = EXT4_B2C(sbi, first_lblk);
 
 	/*
@@ -5823,7 +5823,7 @@ int ext4_ext_replay_update_ex(struct inode *inode, ext4_lblk_t start,
 		goto out;
 	}
 
-	if (le32_to_cpu(ex->ee_block) != start ||
+	if (le32toh(ex->ee_block) != start ||
 		ext4_ext_get_actual_len(ex) != len) {
 		/* We need to split this extent to match our extent first */
 		ppath = path;
@@ -5838,7 +5838,7 @@ int ext4_ext_replay_update_ex(struct inode *inode, ext4_lblk_t start,
 			return -1;
 		ppath = path;
 		ex = path[path->p_depth].p_ext;
-		WARN_ON(le32_to_cpu(ex->ee_block) != start);
+		WARN_ON(le32toh(ex->ee_block) != start);
 		if (ext4_ext_get_actual_len(ex) != len) {
 			down_write(&EXT4_I(inode)->i_data_sem);
 			ret = ext4_force_split_extent_at(NULL, inode, &ppath,
@@ -5887,7 +5887,7 @@ void ext4_ext_replay_shrink_inode(struct inode *inode, ext4_lblk_t end)
 			return;
 		}
 		old_cur = cur;
-		cur = le32_to_cpu(ex->ee_block) + ext4_ext_get_actual_len(ex);
+		cur = le32toh(ex->ee_block) + ext4_ext_get_actual_len(ex);
 		if (cur <= old_cur)
 			cur = old_cur + 1;
 		ext4_ext_try_to_merge(NULL, inode, path, ex);
@@ -5936,7 +5936,7 @@ int ext4_ext_replay_set_iblocks(struct inode *inode)
 		kfree(path);
 		goto out;
 	}
-	end = le32_to_cpu(ex->ee_block) + ext4_ext_get_actual_len(ex);
+	end = le32toh(ex->ee_block) + ext4_ext_get_actual_len(ex);
 	ext4_ext_drop_refs(path);
 	kfree(path);
 
@@ -5978,7 +5978,7 @@ int ext4_ext_replay_set_iblocks(struct inode *inode)
 			kfree(path);
 			return 0;
 		}
-		cur = max(cur + 1, le32_to_cpu(ex->ee_block) +
+		cur = max(cur + 1, le32toh(ex->ee_block) +
 					ext4_ext_get_actual_len(ex));
 		skip_hole(inode, &cur);
 
@@ -6031,7 +6031,7 @@ int ext4_ext_clear_bb(struct inode *inode)
 		kfree(path);
 		return 0;
 	}
-	end = le32_to_cpu(ex->ee_block) + ext4_ext_get_actual_len(ex);
+	end = le32toh(ex->ee_block) + ext4_ext_get_actual_len(ex);
 	ext4_ext_drop_refs(path);
 	kfree(path);
 

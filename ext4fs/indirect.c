@@ -156,7 +156,7 @@ static Indirect *ext4_get_branch(struct inode *inode, int depth,
 	if (!p->key)
 		goto no_block;
 	while (--depth) {
-		bh = sb_getblk(sb, le32_to_cpu(p->key));
+		bh = sb_getblk(sb, le32toh(p->key));
 		if (unlikely(!bh)) {
 			ret = -ENOMEM;
 			goto failure;
@@ -216,7 +216,7 @@ static ext4_fsblk_t ext4_find_near(struct inode *inode, Indirect *ind)
 	/* Try to find previous block */
 	for (p = ind->p - 1; p >= start; p--) {
 		if (*p)
-			return le32_to_cpu(*p);
+			return le32toh(*p);
 	}
 
 	/* No such thing, so let's try location of indirect block */
@@ -287,7 +287,7 @@ static int ext4_blks_to_allocate(Indirect *branch, int k, unsigned int blks,
 
 	count++;
 	while (count < blks && count <= blocks_to_boundary &&
-		le32_to_cpu(*(branch[0].p + count)) == 0) {
+		le32toh(*(branch[0].p + count)) == 0) {
 		count++;
 	}
 	return count;
@@ -343,7 +343,7 @@ static int ext4_alloc_branch(handle_t *handle,
 			i--;
 			goto failed;
 		}
-		branch[i].key = cpu_to_le32(new_blocks[i]);
+		branch[i].key = htole32(new_blocks[i]);
 		if (i == 0)
 			continue;
 
@@ -367,7 +367,7 @@ static int ext4_alloc_branch(handle_t *handle,
 		if (i == indirect_blks)
 			len = ar->len;
 		for (j = 0; j < len; j++)
-			*p++ = cpu_to_le32(b++);
+			*p++ = htole32(b++);
 
 		BUFFER_TRACE(bh, "marking uptodate");
 		set_buffer_uptodate(bh);
@@ -442,9 +442,9 @@ static int ext4_splice_branch(handle_t *handle,
 	 * direct blocks blocks
 	 */
 	if (num == 0 && ar->len > 1) {
-		current_block = le32_to_cpu(where->key) + 1;
+		current_block = le32toh(where->key) + 1;
 		for (i = 1; i < ar->len; i++)
-			*(where->p + i) = cpu_to_le32(current_block++);
+			*(where->p + i) = htole32(current_block++);
 	}
 
 	/* We are done with atomic stuff, now do the rest of housekeeping */
@@ -484,7 +484,7 @@ err_out:
 		ext4_free_blocks(handle, ar->inode, where[i].bh, 0, 1,
 				 EXT4_FREE_BLOCKS_FORGET);
 	}
-	ext4_free_blocks(handle, ar->inode, NULL, le32_to_cpu(where[num].key),
+	ext4_free_blocks(handle, ar->inode, NULL, le32toh(where[num].key),
 			 ar->len, 0);
 
 	return err;
@@ -546,13 +546,13 @@ int ext4_ind_map_blocks(handle_t *handle, struct inode *inode,
 
 	/* Simplest case - block found, no allocation needed */
 	if (!partial) {
-		first_block = le32_to_cpu(chain[depth - 1].key);
+		first_block = le32toh(chain[depth - 1].key);
 		count++;
 		/*map more blocks*/
 		while (count < map->m_len && count <= blocks_to_boundary) {
 			ext4_fsblk_t blk;
 
-			blk = le32_to_cpu(*(chain[depth-1].p + count));
+			blk = le32toh(*(chain[depth-1].p + count));
 
 			if (blk == first_block + count)
 				count++;
@@ -644,7 +644,7 @@ int ext4_ind_map_blocks(handle_t *handle, struct inode *inode,
 	count = ar.len;
 got_it:
 	map->m_flags |= EXT4_MAP_MAPPED;
-	map->m_pblk = le32_to_cpu(chain[depth-1].key);
+	map->m_pblk = le32toh(chain[depth-1].key);
 	map->m_len = count;
 	if (count > blocks_to_boundary)
 		map->m_flags |= EXT4_MAP_BOUNDARY;
@@ -924,7 +924,7 @@ static void ext4_free_data(handle_t *handle, struct inode *inode,
 	}
 
 	for (p = first; p < last; p++) {
-		nr = le32_to_cpu(*p);
+		nr = le32toh(*p);
 		if (nr) {
 			/* accumulate blocks to free if they're contiguous */
 			if (count == 0) {
@@ -1000,7 +1000,7 @@ static void ext4_free_branches(handle_t *handle, struct inode *inode,
 		int addr_per_block = EXT4_ADDR_PER_BLOCK(inode->i_sb);
 		p = last;
 		while (--p >= first) {
-			nr = le32_to_cpu(*p);
+			nr = le32toh(*p);
 			if (!nr)
 				continue;		/* A hole */
 

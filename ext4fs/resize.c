@@ -58,7 +58,7 @@ int ext4_resize_begin(struct super_block *sb)
          * bad time to do it anyways.
          */
 	if (EXT4_B2C(sbi, sbi->s_sbh->b_blocknr) !=
-	    le32_to_cpu(EXT4_SB(sb)->s_es->s_first_data_block)) {
+	    le32toh(EXT4_SB(sb)->s_es->s_first_data_block)) {
 		ext4_warning(sb, "won't resize using backup superblock at %llu",
 			(unsigned long long)EXT4_SB(sb)->s_sbh->b_blocknr);
 		return -EPERM;
@@ -105,7 +105,7 @@ static ext4_grpblk_t ext4_group_overhead_blocks(struct super_block *sb,
 	overhead = ext4_bg_num_gdb(sb, group);
 	if (ext4_bg_has_super(sb, group))
 		overhead += 1 +
-			  le16_to_cpu(EXT4_SB(sb)->s_es->s_reserved_gdt_blocks);
+			  le16toh(EXT4_SB(sb)->s_es->s_reserved_gdt_blocks);
 	return overhead;
 }
 
@@ -520,7 +520,7 @@ static int setup_new_flex_group_blocks(struct super_block *sb,
 	BUG_ON(!flex_gd->count || !group_data ||
 	       group_data[0].group != sbi->s_groups_count);
 
-	reserved_gdb = le16_to_cpu(es->s_reserved_gdt_blocks);
+	reserved_gdb = le16toh(es->s_reserved_gdt_blocks);
 	meta_bg = ext4_has_feature_meta_bg(sb);
 
 	/* This transaction may be extended/restarted along the way */
@@ -755,7 +755,7 @@ static int verify_reserved_gdb(struct super_block *sb,
 	int gdbackups = 0;
 
 	while ((grp = ext4_list_backups(sb, &three, &five, &seven)) < end) {
-		if (le32_to_cpu(*p++) !=
+		if (le32toh(*p++) !=
 		    grp * EXT4_BLOCKS_PER_GROUP(sb) + blk){
 			ext4_warning(sb, "reserved GDT %llu"
 				     " missing grp %d (%llu)",
@@ -816,7 +816,7 @@ static int add_new_gdb(handle_t *handle, struct inode *inode,
 	}
 
 	data = EXT4_I(inode)->i_data + EXT4_DIND_BLOCK;
-	dind = ext4_sb_bread(sb, le32_to_cpu(*data), 0);
+	dind = ext4_sb_bread(sb, le32toh(*data), 0);
 	if (IS_ERR(dind)) {
 		err = PTR_ERR(dind);
 		dind = NULL;
@@ -824,7 +824,7 @@ static int add_new_gdb(handle_t *handle, struct inode *inode,
 	}
 
 	data = (__le32 *)dind->b_data;
-	if (le32_to_cpu(data[gdb_num % EXT4_ADDR_PER_BLOCK(sb)]) != gdblock) {
+	if (le32toh(data[gdb_num % EXT4_ADDR_PER_BLOCK(sb)]) != gdblock) {
 		ext4_warning(sb, "new group %u GDT block %llu not reserved",
 			     group, gdblock);
 		err = -EINVAL;
@@ -978,7 +978,7 @@ static int reserve_backup_gdb(handle_t *handle, struct inode *inode,
 			      ext4_group_t group)
 {
 	struct super_block *sb = inode->i_sb;
-	int reserved_gdb =le16_to_cpu(EXT4_SB(sb)->s_es->s_reserved_gdt_blocks);
+	int reserved_gdb =le16toh(EXT4_SB(sb)->s_es->s_reserved_gdt_blocks);
 	int cluster_bits = EXT4_SB(sb)->s_cluster_bits;
 	struct buffer_head **primary;
 	struct buffer_head *dind;
@@ -994,7 +994,7 @@ static int reserve_backup_gdb(handle_t *handle, struct inode *inode,
 		return -ENOMEM;
 
 	data = EXT4_I(inode)->i_data + EXT4_DIND_BLOCK;
-	dind = ext4_sb_bread(sb, le32_to_cpu(*data), 0);
+	dind = ext4_sb_bread(sb, le32toh(*data), 0);
 	if (IS_ERR(dind)) {
 		err = PTR_ERR(dind);
 		dind = NULL;
@@ -1008,7 +1008,7 @@ static int reserve_backup_gdb(handle_t *handle, struct inode *inode,
 
 	/* Get each reserved primary GDT block and verify it holds backups */
 	for (res = 0; res < reserved_gdb; res++, blk++) {
-		if (le32_to_cpu(*data) != blk) {
+		if (le32toh(*data) != blk) {
 			ext4_warning(sb, "reserved block %llu"
 				     " not at offset %ld",
 				     blk,
@@ -1052,7 +1052,7 @@ static int reserve_backup_gdb(handle_t *handle, struct inode *inode,
 		/* printk("reserving backup %lu[%u] = %lu\n",
 		       primary[i]->b_blocknr, gdbackups,
 		       blk + primary[i]->b_blocknr); */
-		data[gdbackups] = cpu_to_le32(blk + primary[i]->b_blocknr);
+		data[gdbackups] = htole32(blk + primary[i]->b_blocknr);
 		err2 = ext4_handle_dirty_metadata(handle, NULL, primary[i]);
 		if (!err)
 			err = err2;
@@ -1181,7 +1181,7 @@ exit_err:
 		ext4_warning(sb, "can't update backup for group %u (err %d), "
 			     "forcing fsck on next reboot", group, err);
 		sbi->s_mount_state &= ~EXT4_VALID_FS;
-		sbi->s_es->s_state &= cpu_to_le16(~EXT4_VALID_FS);
+		sbi->s_es->s_state &= htole16(~EXT4_VALID_FS);
 		mark_buffer_dirty(sbi->s_sbh);
 	}
 }
@@ -1209,7 +1209,7 @@ static int ext4_add_new_descs(handle_t *handle, struct super_block *sb,
 	meta_bg = ext4_has_feature_meta_bg(sb);
 	for (i = 0; i < count; i++, group++) {
 		int reserved_gdb = ext4_bg_has_super(sb, group) ?
-			le16_to_cpu(es->s_reserved_gdt_blocks) : 0;
+			le16toh(es->s_reserved_gdt_blocks) : 0;
 
 		gdb_off = group % EXT4_DESC_PER_BLOCK(sb);
 		gdb_num = group / EXT4_DESC_PER_BLOCK(sb);
@@ -1325,7 +1325,7 @@ static int ext4_setup_new_descs(handle_t *handle, struct super_block *sb,
 		if (ext4_has_group_desc_csum(sb))
 			ext4_itable_unused_set(sb, gdp,
 					       EXT4_INODES_PER_GROUP(sb));
-		gdp->bg_flags = cpu_to_le16(*bg_flags);
+		gdp->bg_flags = htole16(*bg_flags);
 		ext4_group_desc_csum_set(sb, group, gdp);
 
 		err = ext4_handle_dirty_metadata(handle, NULL, gdb_bh);
@@ -1472,7 +1472,7 @@ static int ext4_flex_group_add(struct super_block *sb,
 
 	BUG_ON(!flex_gd->count || !flex_gd->groups || !flex_gd->bg_flags);
 
-	reserved_gdb = le16_to_cpu(es->s_reserved_gdt_blocks);
+	reserved_gdb = le16toh(es->s_reserved_gdt_blocks);
 	o_blocks_count = ext4_blocks_count(es);
 	ext4_get_group_no_and_offset(sb, o_blocks_count, &group, &last);
 	BUG_ON(last);
@@ -1629,7 +1629,7 @@ int ext4_group_add(struct super_block *sb, struct ext4_new_group_data *input)
 	struct ext4_sb_info *sbi = EXT4_SB(sb);
 	struct ext4_super_block *es = sbi->s_es;
 	int reserved_gdb = ext4_bg_has_super(sb, input->group) ?
-		le16_to_cpu(es->s_reserved_gdt_blocks) : 0;
+		le16toh(es->s_reserved_gdt_blocks) : 0;
 	struct inode *inode = NULL;
 	int gdb_off;
 	int err;
@@ -1648,15 +1648,15 @@ int ext4_group_add(struct super_block *sb, struct ext4_new_group_data *input)
 		return -EINVAL;
 	}
 
-	if (le32_to_cpu(es->s_inodes_count) + EXT4_INODES_PER_GROUP(sb) <
-	    le32_to_cpu(es->s_inodes_count)) {
+	if (le32toh(es->s_inodes_count) + EXT4_INODES_PER_GROUP(sb) <
+	    le32toh(es->s_inodes_count)) {
 		ext4_warning(sb, "inodes_count overflow");
 		return -EINVAL;
 	}
 
 	if (reserved_gdb || gdb_off == 0) {
 		if (!ext4_has_feature_resize_inode(sb) ||
-		    !le16_to_cpu(es->s_reserved_gdt_blocks)) {
+		    !le16toh(es->s_reserved_gdt_blocks)) {
 			ext4_warning(sb,
 				     "No reserved GDT blocks, can't resize");
 			return -EPERM;
@@ -1877,7 +1877,7 @@ static int ext4_convert_meta_bg(struct super_block *sb, struct inode *inode)
 	ext4_clear_feature_resize_inode(sb);
 	ext4_set_feature_meta_bg(sb);
 	sbi->s_es->s_first_meta_bg =
-		cpu_to_le32(num_desc_blocks(sb, sbi->s_groups_count));
+		htole32(num_desc_blocks(sb, sbi->s_groups_count));
 
 	err = ext4_handle_dirty_super(handle, sb);
 	if (err) {
@@ -1886,7 +1886,7 @@ static int ext4_convert_meta_bg(struct super_block *sb, struct inode *inode)
 	}
 
 	if (inode) {
-		nr = le32_to_cpu(ei->i_data[EXT4_DIND_BLOCK]);
+		nr = le32toh(ei->i_data[EXT4_DIND_BLOCK]);
 		ext4_free_blocks(handle, inode, NULL, nr, 1,
 				 EXT4_FREE_BLOCKS_METADATA |
 				 EXT4_FREE_BLOCKS_FORGET);
@@ -1976,14 +1976,14 @@ retry:
 			return -EINVAL;
 		}
 		if (n_desc_blocks > o_desc_blocks +
-		    le16_to_cpu(es->s_reserved_gdt_blocks)) {
+		    le16toh(es->s_reserved_gdt_blocks)) {
 			n_blocks_count_retry = n_blocks_count;
 			n_desc_blocks = o_desc_blocks +
-				le16_to_cpu(es->s_reserved_gdt_blocks);
+				le16toh(es->s_reserved_gdt_blocks);
 			n_group = n_desc_blocks * EXT4_DESC_PER_BLOCK(sb);
 			n_blocks_count = (ext4_fsblk_t)n_group *
 				EXT4_BLOCKS_PER_GROUP(sb) +
-				le32_to_cpu(es->s_first_data_block);
+				le32toh(es->s_first_data_block);
 			n_group--; /* set to last group number */
 		}
 

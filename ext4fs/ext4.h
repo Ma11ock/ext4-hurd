@@ -878,32 +878,32 @@ struct move_extent {
 static inline __le32 ext4_encode_extra_time(struct timespec64 *time)
 {
 	u32 extra =((time->tv_sec - (s32)time->tv_sec) >> 32) & EXT4_EPOCH_MASK;
-	return cpu_to_le32(extra | (time->tv_nsec << EXT4_EPOCH_BITS));
+	return htole32(extra | (time->tv_nsec << EXT4_EPOCH_BITS));
 }
 
 static inline void ext4_decode_extra_time(struct timespec64 *time,
 					  __le32 extra)
 {
-	if (unlikely(extra & cpu_to_le32(EXT4_EPOCH_MASK)))
-		time->tv_sec += (u64)(le32_to_cpu(extra) & EXT4_EPOCH_MASK) << 32;
-	time->tv_nsec = (le32_to_cpu(extra) & EXT4_NSEC_MASK) >> EXT4_EPOCH_BITS;
+	if (unlikely(extra & htole32(EXT4_EPOCH_MASK)))
+		time->tv_sec += (u64)(le32toh(extra) & EXT4_EPOCH_MASK) << 32;
+	time->tv_nsec = (le32toh(extra) & EXT4_NSEC_MASK) >> EXT4_EPOCH_BITS;
 }
 
 #define EXT4_INODE_SET_XTIME(xtime, inode, raw_inode)				\
 do {										\
 	if (EXT4_FITS_IN_INODE(raw_inode, EXT4_I(inode), xtime ## _extra))     {\
-		(raw_inode)->xtime = cpu_to_le32((inode)->xtime.tv_sec);	\
+		(raw_inode)->xtime = htole32((inode)->xtime.tv_sec);	\
 		(raw_inode)->xtime ## _extra =					\
 				ext4_encode_extra_time(&(inode)->xtime);	\
 		}								\
 	else	\
-		(raw_inode)->xtime = cpu_to_le32(clamp_t(int32_t, (inode)->xtime.tv_sec, S32_MIN, S32_MAX));	\
+		(raw_inode)->xtime = htole32(clamp_t(int32_t, (inode)->xtime.tv_sec, S32_MIN, S32_MAX));	\
 } while (0)
 
 #define EXT4_EINODE_SET_XTIME(xtime, einode, raw_inode)			       \
 do {									       \
 	if (EXT4_FITS_IN_INODE(raw_inode, einode, xtime))		       \
-		(raw_inode)->xtime = cpu_to_le32((einode)->xtime.tv_sec);      \
+		(raw_inode)->xtime = htole32((einode)->xtime.tv_sec);      \
 	if (EXT4_FITS_IN_INODE(raw_inode, einode, xtime ## _extra))	       \
 		(raw_inode)->xtime ## _extra =				       \
 				ext4_encode_extra_time(&(einode)->xtime);      \
@@ -911,7 +911,7 @@ do {									       \
 
 #define EXT4_INODE_GET_XTIME(xtime, inode, raw_inode)				\
 do {										\
-	(inode)->xtime.tv_sec = (signed)le32_to_cpu((raw_inode)->xtime);	\
+	(inode)->xtime.tv_sec = (signed)le32toh((raw_inode)->xtime);	\
 	if (EXT4_FITS_IN_INODE(raw_inode, EXT4_I(inode), xtime ## _extra)) {	\
 		ext4_decode_extra_time(&(inode)->xtime,				\
 				       raw_inode->xtime ## _extra);		\
@@ -925,7 +925,7 @@ do {										\
 do {									       \
 	if (EXT4_FITS_IN_INODE(raw_inode, einode, xtime))		       \
 		(einode)->xtime.tv_sec = 				       \
-			(signed)le32_to_cpu((raw_inode)->xtime);	       \
+			(signed)le32toh((raw_inode)->xtime);	       \
 	else								       \
 		(einode)->xtime.tv_sec = 0;				       \
 	if (EXT4_FITS_IN_INODE(raw_inode, einode, xtime ## _extra))	       \
@@ -1661,7 +1661,7 @@ static inline int ext4_valid_inum(struct super_block *sb, unsigned long ino)
 {
 	return ino == EXT4_ROOT_INO ||
 		(ino >= EXT4_FIRST_INO(sb) &&
-		 ino <= le32_to_cpu(EXT4_SB(sb)->s_es->s_inodes_count));
+		 ino <= le32toh(EXT4_SB(sb)->s_es->s_inodes_count));
 }
 
 /*
@@ -1931,54 +1931,54 @@ extern void ext4_update_dynamic_rev(struct super_block *sb);
 static inline bool ext4_has_feature_##name(struct super_block *sb) \
 { \
 	return ((EXT4_SB(sb)->s_es->s_feature_compat & \
-		cpu_to_le32(EXT4_FEATURE_COMPAT_##flagname)) != 0); \
+		htole32(EXT4_FEATURE_COMPAT_##flagname)) != 0); \
 } \
 static inline void ext4_set_feature_##name(struct super_block *sb) \
 { \
 	ext4_update_dynamic_rev(sb); \
 	EXT4_SB(sb)->s_es->s_feature_compat |= \
-		cpu_to_le32(EXT4_FEATURE_COMPAT_##flagname); \
+		htole32(EXT4_FEATURE_COMPAT_##flagname); \
 } \
 static inline void ext4_clear_feature_##name(struct super_block *sb) \
 { \
 	EXT4_SB(sb)->s_es->s_feature_compat &= \
-		~cpu_to_le32(EXT4_FEATURE_COMPAT_##flagname); \
+		~htole32(EXT4_FEATURE_COMPAT_##flagname); \
 }
 
 #define EXT4_FEATURE_RO_COMPAT_FUNCS(name, flagname) \
 static inline bool ext4_has_feature_##name(struct super_block *sb) \
 { \
 	return ((EXT4_SB(sb)->s_es->s_feature_ro_compat & \
-		cpu_to_le32(EXT4_FEATURE_RO_COMPAT_##flagname)) != 0); \
+		htole32(EXT4_FEATURE_RO_COMPAT_##flagname)) != 0); \
 } \
 static inline void ext4_set_feature_##name(struct super_block *sb) \
 { \
 	ext4_update_dynamic_rev(sb); \
 	EXT4_SB(sb)->s_es->s_feature_ro_compat |= \
-		cpu_to_le32(EXT4_FEATURE_RO_COMPAT_##flagname); \
+		htole32(EXT4_FEATURE_RO_COMPAT_##flagname); \
 } \
 static inline void ext4_clear_feature_##name(struct super_block *sb) \
 { \
 	EXT4_SB(sb)->s_es->s_feature_ro_compat &= \
-		~cpu_to_le32(EXT4_FEATURE_RO_COMPAT_##flagname); \
+		~htole32(EXT4_FEATURE_RO_COMPAT_##flagname); \
 }
 
 #define EXT4_FEATURE_INCOMPAT_FUNCS(name, flagname) \
 static inline bool ext4_has_feature_##name(struct super_block *sb) \
 { \
 	return ((EXT4_SB(sb)->s_es->s_feature_incompat & \
-		cpu_to_le32(EXT4_FEATURE_INCOMPAT_##flagname)) != 0); \
+		htole32(EXT4_FEATURE_INCOMPAT_##flagname)) != 0); \
 } \
 static inline void ext4_set_feature_##name(struct super_block *sb) \
 { \
 	ext4_update_dynamic_rev(sb); \
 	EXT4_SB(sb)->s_es->s_feature_incompat |= \
-		cpu_to_le32(EXT4_FEATURE_INCOMPAT_##flagname); \
+		htole32(EXT4_FEATURE_INCOMPAT_##flagname); \
 } \
 static inline void ext4_clear_feature_##name(struct super_block *sb) \
 { \
 	EXT4_SB(sb)->s_es->s_feature_incompat &= \
-		~cpu_to_le32(EXT4_FEATURE_INCOMPAT_##flagname); \
+		~htole32(EXT4_FEATURE_INCOMPAT_##flagname); \
 }
 
 EXT4_FEATURE_COMPAT_FUNCS(dir_prealloc,		DIR_PREALLOC)
@@ -2068,17 +2068,17 @@ EXT4_FEATURE_INCOMPAT_FUNCS(casefold,		CASEFOLD)
 static inline bool ext4_has_unknown_ext##ver##_compat_features(struct super_block *sb) \
 { \
 	return ((EXT4_SB(sb)->s_es->s_feature_compat & \
-		cpu_to_le32(~EXT##ver##_FEATURE_COMPAT_SUPP)) != 0); \
+		htole32(~EXT##ver##_FEATURE_COMPAT_SUPP)) != 0); \
 } \
 static inline bool ext4_has_unknown_ext##ver##_ro_compat_features(struct super_block *sb) \
 { \
 	return ((EXT4_SB(sb)->s_es->s_feature_ro_compat & \
-		cpu_to_le32(~EXT##ver##_FEATURE_RO_COMPAT_SUPP)) != 0); \
+		htole32(~EXT##ver##_FEATURE_RO_COMPAT_SUPP)) != 0); \
 } \
 static inline bool ext4_has_unknown_ext##ver##_incompat_features(struct super_block *sb) \
 { \
 	return ((EXT4_SB(sb)->s_es->s_feature_incompat & \
-		cpu_to_le32(~EXT##ver##_FEATURE_INCOMPAT_SUPP)) != 0); \
+		htole32(~EXT##ver##_FEATURE_INCOMPAT_SUPP)) != 0); \
 }
 
 EXTN_FEATURE_FUNCS(2)
@@ -2231,7 +2231,7 @@ struct ext4_dir_entry_tail {
 static inline unsigned int
 ext4_rec_len_from_disk(__le16 dlen, unsigned blocksize)
 {
-	unsigned len = le16_to_cpu(dlen);
+	unsigned len = le16toh(dlen);
 
 #if (PAGE_SIZE >= 65536)
 	if (len == EXT4_MAX_REC_LEN || len == 0)
@@ -2248,16 +2248,16 @@ static inline __le16 ext4_rec_len_to_disk(unsigned len, unsigned blocksize)
 		BUG();
 #if (PAGE_SIZE >= 65536)
 	if (len < 65536)
-		return cpu_to_le16(len);
+		return htole16(len);
 	if (len == blocksize) {
 		if (blocksize == 65536)
-			return cpu_to_le16(EXT4_MAX_REC_LEN);
+			return htole16(EXT4_MAX_REC_LEN);
 		else
-			return cpu_to_le16(0);
+			return htole16(0);
 	}
-	return cpu_to_le16((len & 65532) | ((len >> 16) & 3));
+	return htole16((len & 65532) | ((len >> 16) & 3));
 #else
-	return cpu_to_le16(len);
+	return htole16(len);
 #endif
 }
 
@@ -2377,7 +2377,7 @@ static inline ext4_fsblk_t
 ext4_group_first_block_no(struct super_block *sb, ext4_group_t group_no)
 {
 	return group_no * (ext4_fsblk_t)EXT4_BLOCKS_PER_GROUP(sb) +
-		le32_to_cpu(EXT4_SB(sb)->s_es->s_first_data_block);
+		le32toh(EXT4_SB(sb)->s_es->s_first_data_block);
 }
 
 /*
@@ -3130,9 +3130,9 @@ static inline int ext4_has_group_desc_csum(struct super_block *sb)
 }
 
 #define ext4_read_incompat_64bit_val(es, name) \
-	(((es)->s_feature_incompat & cpu_to_le32(EXT4_FEATURE_INCOMPAT_64BIT) \
-		? (ext4_fsblk_t)le32_to_cpu(es->name##_hi) << 32 : 0) | \
-		le32_to_cpu(es->name##_lo))
+	(((es)->s_feature_incompat & htole32(EXT4_FEATURE_INCOMPAT_64BIT) \
+		? (ext4_fsblk_t)le32toh(es->name##_hi) << 32 : 0) | \
+		le32toh(es->name##_lo))
 
 static inline ext4_fsblk_t ext4_blocks_count(struct ext4_super_block *es)
 {
@@ -3152,39 +3152,39 @@ static inline ext4_fsblk_t ext4_free_blocks_count(struct ext4_super_block *es)
 static inline void ext4_blocks_count_set(struct ext4_super_block *es,
 					 ext4_fsblk_t blk)
 {
-	es->s_blocks_count_lo = cpu_to_le32((u32)blk);
-	es->s_blocks_count_hi = cpu_to_le32(blk >> 32);
+	es->s_blocks_count_lo = htole32((u32)blk);
+	es->s_blocks_count_hi = htole32(blk >> 32);
 }
 
 static inline void ext4_free_blocks_count_set(struct ext4_super_block *es,
 					      ext4_fsblk_t blk)
 {
-	es->s_free_blocks_count_lo = cpu_to_le32((u32)blk);
-	es->s_free_blocks_count_hi = cpu_to_le32(blk >> 32);
+	es->s_free_blocks_count_lo = htole32((u32)blk);
+	es->s_free_blocks_count_hi = htole32(blk >> 32);
 }
 
 static inline void ext4_r_blocks_count_set(struct ext4_super_block *es,
 					   ext4_fsblk_t blk)
 {
-	es->s_r_blocks_count_lo = cpu_to_le32((u32)blk);
-	es->s_r_blocks_count_hi = cpu_to_le32(blk >> 32);
+	es->s_r_blocks_count_lo = htole32((u32)blk);
+	es->s_r_blocks_count_hi = htole32(blk >> 32);
 }
 
 static inline loff_t ext4_isize(struct super_block *sb,
 				struct ext4_inode *raw_inode)
 {
 	if (ext4_has_feature_largedir(sb) ||
-	    S_ISREG(le16_to_cpu(raw_inode->i_mode)))
-		return ((loff_t)le32_to_cpu(raw_inode->i_size_high) << 32) |
-			le32_to_cpu(raw_inode->i_size_lo);
+	    S_ISREG(le16toh(raw_inode->i_mode)))
+		return ((loff_t)le32toh(raw_inode->i_size_high) << 32) |
+			le32toh(raw_inode->i_size_lo);
 
-	return (loff_t) le32_to_cpu(raw_inode->i_size_lo);
+	return (loff_t) le32toh(raw_inode->i_size_lo);
 }
 
 static inline void ext4_isize_set(struct ext4_inode *raw_inode, loff_t i_size)
 {
-	raw_inode->i_size_lo = cpu_to_le32(i_size);
-	raw_inode->i_size_high = cpu_to_le32(i_size >> 32);
+	raw_inode->i_size_lo = htole32(i_size);
+	raw_inode->i_size_high = htole32(i_size >> 32);
 }
 
 static inline

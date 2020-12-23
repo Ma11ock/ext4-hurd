@@ -1,3 +1,4 @@
 * TODO
 Replace all page-io function calls with pager function calls
 CRC16 in libdiskfs
+Memory barriers

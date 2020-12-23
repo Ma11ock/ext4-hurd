@@ -16,7 +16,7 @@ static __le32 ext4_mmp_csum(struct super_block *sb, struct mmp_struct *mmp)
 
 	csum = ext4_chksum(sbi, sbi->s_csum_seed, (char *)mmp, offset);
 
-	return cpu_to_le32(csum);
+	return htole32(csum);
 }
 
 static int ext4_mmp_csum_verify(struct super_block *sb, struct mmp_struct *mmp)
@@ -91,7 +91,7 @@ static int read_mmp_block(struct super_block *sb, struct buffer_head **bh,
 		goto warn_exit;
 
 	mmp = (struct mmp_struct *)((*bh)->b_data);
-	if (le32_to_cpu(mmp->mmp_magic) != EXT4_MMP_MAGIC) {
+	if (le32toh(mmp->mmp_magic) != EXT4_MMP_MAGIC) {
 		ret = -EFSCORRUPTED;
 		goto warn_exit;
 	}
@@ -117,7 +117,7 @@ void __dump_mmp_msg(struct super_block *sb, struct mmp_struct *mmp,
 	__ext4_warning(sb, function, line, "%s", msg);
 	__ext4_warning(sb, function, line,
 		       "MMP failure info: last update time: %llu, last update node: %.*s, last update device: %.*s",
-		       (unsigned long long)le64_to_cpu(mmp->mmp_time),
+		       (unsigned long long)le64toh(mmp->mmp_time),
 		       (int)sizeof(mmp->mmp_nodename), mmp->mmp_nodename,
 		       (int)sizeof(mmp->mmp_bdevname), mmp->mmp_bdevname);
 }
@@ -134,22 +134,22 @@ static int kmmpd(void *data)
 	ext4_fsblk_t mmp_block;
 	u32 seq = 0;
 	unsigned long failed_writes = 0;
-	int mmp_update_interval = le16_to_cpu(es->s_mmp_update_interval);
+	int mmp_update_interval = le16toh(es->s_mmp_update_interval);
 	unsigned mmp_check_interval;
 	unsigned long last_update_time;
 	unsigned long diff;
 	int retval;
 
-	mmp_block = le64_to_cpu(es->s_mmp_block);
+	mmp_block = le64toh(es->s_mmp_block);
 	mmp = (struct mmp_struct *)(bh->b_data);
-	mmp->mmp_time = cpu_to_le64(ktime_get_real_seconds());
+	mmp->mmp_time = htole64(ktime_get_real_seconds());
 	/*
 	 * Start with the higher mmp_check_interval and reduce it if
 	 * the MMP block is being updated on time.
 	 */
 	mmp_check_interval = max(EXT4_MMP_CHECK_MULT * mmp_update_interval,
 				 EXT4_MMP_MIN_CHECK_INTERVAL);
-	mmp->mmp_check_interval = cpu_to_le16(mmp_check_interval);
+	mmp->mmp_check_interval = htole16(mmp_check_interval);
 	BUILD_BUG_ON(sizeof(mmp->mmp_bdevname) < BDEVNAME_SIZE);
 	bdevname(bh->b_bdev, mmp->mmp_bdevname);
 
@@ -160,8 +160,8 @@ static int kmmpd(void *data)
 		if (++seq > EXT4_MMP_SEQ_MAX)
 			seq = 1;
 
-		mmp->mmp_seq = cpu_to_le32(seq);
-		mmp->mmp_time = cpu_to_le64(ktime_get_real_seconds());
+		mmp->mmp_seq = htole32(seq);
+		mmp->mmp_time = htole64(ktime_get_real_seconds());
 		last_update_time = jiffies;
 
 		retval = write_mmp_block(sb, bh);
@@ -177,7 +177,7 @@ static int kmmpd(void *data)
 			failed_writes++;
 		}
 
-		if (!(le32_to_cpu(es->s_feature_incompat) &
+		if (!(le32toh(es->s_feature_incompat) &
 		    EXT4_FEATURE_INCOMPAT_MMP)) {
 			ext4_warning(sb, "kmmpd being stopped since MMP feature"
 				     " has been disabled.");
@@ -233,14 +233,14 @@ static int kmmpd(void *data)
 		mmp_check_interval = max(min(EXT4_MMP_CHECK_MULT * diff / HZ,
 					     EXT4_MMP_MAX_CHECK_INTERVAL),
 					 EXT4_MMP_MIN_CHECK_INTERVAL);
-		mmp->mmp_check_interval = cpu_to_le16(mmp_check_interval);
+		mmp->mmp_check_interval = htole16(mmp_check_interval);
 	}
 
 	/*
 	 * Unmount seems to be clean.
 	 */
-	mmp->mmp_seq = cpu_to_le32(EXT4_MMP_SEQ_CLEAN);
-	mmp->mmp_time = cpu_to_le64(ktime_get_real_seconds());
+	mmp->mmp_seq = htole32(EXT4_MMP_SEQ_CLEAN);
+	mmp->mmp_time = htole64(ktime_get_real_seconds());
 
 	retval = write_mmp_block(sb, bh);
 
@@ -277,11 +277,11 @@ int ext4_multi_mount_protect(struct super_block *sb,
 	struct mmp_struct *mmp = NULL;
 	struct mmpd_data *mmpd_data;
 	u32 seq;
-	unsigned int mmp_check_interval = le16_to_cpu(es->s_mmp_update_interval);
+	unsigned int mmp_check_interval = le16toh(es->s_mmp_update_interval);
 	unsigned int wait_time = 0;
 	int retval;
 
-	if (mmp_block < le32_to_cpu(es->s_first_data_block) ||
+	if (mmp_block < le32toh(es->s_first_data_block) ||
 	    mmp_block >= ext4_blocks_count(es)) {
 		ext4_warning(sb, "Invalid MMP block in superblock");
 		goto failed;
@@ -300,10 +300,10 @@ int ext4_multi_mount_protect(struct super_block *sb,
 	 * If check_interval in MMP block is larger, use that instead of
 	 * update_interval from the superblock.
 	 */
-	if (le16_to_cpu(mmp->mmp_check_interval) > mmp_check_interval)
-		mmp_check_interval = le16_to_cpu(mmp->mmp_check_interval);
+	if (le16toh(mmp->mmp_check_interval) > mmp_check_interval)
+		mmp_check_interval = le16toh(mmp->mmp_check_interval);
 
-	seq = le32_to_cpu(mmp->mmp_seq);
+	seq = le32toh(mmp->mmp_seq);
 	if (seq == EXT4_MMP_SEQ_CLEAN)
 		goto skip;
 
@@ -329,7 +329,7 @@ int ext4_multi_mount_protect(struct super_block *sb,
 	if (retval)
 		goto failed;
 	mmp = (struct mmp_struct *)(bh->b_data);
-	if (seq != le32_to_cpu(mmp->mmp_seq)) {
+	if (seq != le32toh(mmp->mmp_seq)) {
 		dump_mmp_msg(sb, mmp,
 			     "Device is already active on another node.");
 		goto failed;
@@ -340,7 +340,7 @@ skip:
 	 * write a new random sequence number.
 	 */
 	seq = mmp_new_seq();
-	mmp->mmp_seq = cpu_to_le32(seq);
+	mmp->mmp_seq = htole32(seq);
 
 	retval = write_mmp_block(sb, bh);
 	if (retval)
@@ -358,7 +358,7 @@ skip:
 	if (retval)
 		goto failed;
 	mmp = (struct mmp_struct *)(bh->b_data);
-	if (seq != le32_to_cpu(mmp->mmp_seq)) {
+	if (seq != le32toh(mmp->mmp_seq)) {
 		dump_mmp_msg(sb, mmp,
 			     "Device is already active on another node.");
 		goto failed;

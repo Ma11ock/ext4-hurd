@@ -155,7 +155,7 @@ static int ext4_protect_reserved_inode(struct super_block *sb,
 	int err = 0, n;
 
 	if ((ino < EXT4_ROOT_INO) ||
-	    (ino > le32_to_cpu(sbi->s_es->s_inodes_count)))
+	    (ino > le32toh(sbi->s_es->s_inodes_count)))
 		return -EINVAL;
 	inode = ext4_iget(sb, ino, EXT4_IGET_SPECIAL);
 	if (IS_ERR(inode))
@@ -251,7 +251,7 @@ int ext4_setup_system_zone(struct super_block *sb)
 	}
 	if (ext4_has_feature_journal(sb) && sbi->s_es->s_journal_inum) {
 		ret = ext4_protect_reserved_inode(sb, system_blks,
-				le32_to_cpu(sbi->s_es->s_journal_inum));
+				le32toh(sbi->s_es->s_journal_inum));
 		if (ret)
 			goto err;
 	}
@@ -308,7 +308,7 @@ int ext4_inode_block_valid(struct inode *inode, ext4_fsblk_t start_blk,
 	struct rb_node *n;
 	int ret = 1;
 
-	if ((start_blk <= le32_to_cpu(sbi->s_es->s_first_data_block)) ||
+	if ((start_blk <= le32toh(sbi->s_es->s_first_data_block)) ||
 	    (start_blk + count < start_blk) ||
 	    (start_blk + count > ext4_blocks_count(sbi->s_es)))
 		return 0;
@@ -348,11 +348,11 @@ int ext4_check_blockref(const char *function, unsigned int line,
 
 	if (ext4_has_feature_journal(inode->i_sb) &&
 	    (inode->i_ino ==
-	     le32_to_cpu(EXT4_SB(inode->i_sb)->s_es->s_journal_inum)))
+	     le32toh(EXT4_SB(inode->i_sb)->s_es->s_journal_inum)))
 		return 0;
 
 	while (bref < p+max) {
-		blk = le32_to_cpu(*bref++);
+		blk = le32toh(*bref++);
 		if (blk &&
 		    unlikely(!ext4_inode_block_valid(inode, blk, 1))) {
 			ext4_error_inode(inode, function, line, blk,

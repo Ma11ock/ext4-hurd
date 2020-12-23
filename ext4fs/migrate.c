@@ -29,8 +29,8 @@ static int finish_range(handle_t *handle, struct inode *inode,
 		return 0;
 
 	/* Add the extent to temp inode*/
-	newext.ee_block = cpu_to_le32(lb->first_block);
-	newext.ee_len   = cpu_to_le16(lb->last_block - lb->first_block + 1);
+	newext.ee_block = htole32(lb->first_block);
+	newext.ee_len   = htole16(lb->last_block - lb->first_block + 1);
 	ext4_ext_store_pblock(&newext, lb->first_pblock);
 	/* Locking only for convinience since we are operating on temp inode */
 	down_write(&EXT4_I(inode)->i_data_sem);
@@ -104,7 +104,7 @@ static int update_ind_extent_range(handle_t *handle, struct inode *inode,
 	for (i = 0; i < max_entries; i++) {
 		if (i_data[i]) {
 			retval = update_extent_range(handle, inode,
-						le32_to_cpu(i_data[i]), lb);
+						le32toh(i_data[i]), lb);
 			if (retval)
 				break;
 		} else {
@@ -133,7 +133,7 @@ static int update_dind_extent_range(handle_t *handle, struct inode *inode,
 	for (i = 0; i < max_entries; i++) {
 		if (i_data[i]) {
 			retval = update_ind_extent_range(handle, inode,
-						le32_to_cpu(i_data[i]), lb);
+						le32toh(i_data[i]), lb);
 			if (retval)
 				break;
 		} else {
@@ -163,7 +163,7 @@ static int update_tind_extent_range(handle_t *handle, struct inode *inode,
 	for (i = 0; i < max_entries; i++) {
 		if (i_data[i]) {
 			retval = update_dind_extent_range(handle, inode,
-						le32_to_cpu(i_data[i]), lb);
+						le32toh(i_data[i]), lb);
 			if (retval)
 				break;
 		} else {
@@ -186,7 +186,7 @@ static int free_dind_blocks(handle_t *handle,
 	unsigned long max_entries = inode->i_sb->s_blocksize >> 2;
 	int err;
 
-	bh = ext4_sb_bread(sb, le32_to_cpu(i_data), 0);
+	bh = ext4_sb_bread(sb, le32toh(i_data), 0);
 	if (IS_ERR(bh))
 		return PTR_ERR(bh);
 
@@ -201,7 +201,7 @@ static int free_dind_blocks(handle_t *handle,
 				return err;
 			}
 			ext4_free_blocks(handle, inode, NULL,
-					 le32_to_cpu(tmp_idata[i]), 1,
+					 le32toh(tmp_idata[i]), 1,
 					 EXT4_FREE_BLOCKS_METADATA |
 					 EXT4_FREE_BLOCKS_FORGET);
 		}
@@ -211,7 +211,7 @@ static int free_dind_blocks(handle_t *handle,
 				ext4_free_metadata_revoke_credits(sb, 1));
 	if (err < 0)
 		return err;
-	ext4_free_blocks(handle, inode, NULL, le32_to_cpu(i_data), 1,
+	ext4_free_blocks(handle, inode, NULL, le32toh(i_data), 1,
 			 EXT4_FREE_BLOCKS_METADATA |
 			 EXT4_FREE_BLOCKS_FORGET);
 	return 0;
@@ -225,7 +225,7 @@ static int free_tind_blocks(handle_t *handle,
 	struct buffer_head *bh;
 	unsigned long max_entries = inode->i_sb->s_blocksize >> 2;
 
-	bh = ext4_sb_bread(inode->i_sb, le32_to_cpu(i_data), 0);
+	bh = ext4_sb_bread(inode->i_sb, le32toh(i_data), 0);
 	if (IS_ERR(bh))
 		return PTR_ERR(bh);
 
@@ -245,7 +245,7 @@ static int free_tind_blocks(handle_t *handle,
 			ext4_free_metadata_revoke_credits(inode->i_sb, 1));
 	if (retval < 0)
 		return retval;
-	ext4_free_blocks(handle, inode, NULL, le32_to_cpu(i_data), 1,
+	ext4_free_blocks(handle, inode, NULL, le32toh(i_data), 1,
 			 EXT4_FREE_BLOCKS_METADATA |
 			 EXT4_FREE_BLOCKS_FORGET);
 	return 0;
@@ -263,7 +263,7 @@ static int free_ind_block(handle_t *handle, struct inode *inode, __le32 *i_data)
 		if (retval < 0)
 			return retval;
 		ext4_free_blocks(handle, inode, NULL,
-				le32_to_cpu(i_data[0]), 1,
+				le32toh(i_data[0]), 1,
 				 EXT4_FREE_BLOCKS_METADATA |
 				 EXT4_FREE_BLOCKS_FORGET);
 	}
@@ -366,7 +366,7 @@ static int free_ext_idx(handle_t *handle, struct inode *inode,
 	eh = (struct ext4_extent_header *)bh->b_data;
 	if (eh->eh_depth != 0) {
 		ix = EXT_FIRST_INDEX(eh);
-		for (i = 0; i < le16_to_cpu(eh->eh_entries); i++, ix++) {
+		for (i = 0; i < le16toh(eh->eh_entries); i++, ix++) {
 			retval = free_ext_idx(handle, inode, ix);
 			if (retval) {
 				put_bh(bh);
@@ -399,7 +399,7 @@ static int free_ext_block(handle_t *handle, struct inode *inode)
 		 */
 		return 0;
 	ix = EXT_FIRST_INDEX(eh);
-	for (i = 0; i < le16_to_cpu(eh->eh_entries); i++, ix++) {
+	for (i = 0; i < le16toh(eh->eh_entries); i++, ix++) {
 		retval = free_ext_idx(handle, inode, ix);
 		if (retval)
 			return retval;
@@ -511,7 +511,7 @@ int ext4_ext_migrate(struct inode *inode)
 	for (i = 0; i < EXT4_NDIR_BLOCKS; i++) {
 		if (i_data[i]) {
 			retval = update_extent_range(handle, tmp_inode,
-						le32_to_cpu(i_data[i]), &lb);
+						le32toh(i_data[i]), &lb);
 			if (retval)
 				goto err_out;
 		} else
@@ -519,21 +519,21 @@ int ext4_ext_migrate(struct inode *inode)
 	}
 	if (i_data[EXT4_IND_BLOCK]) {
 		retval = update_ind_extent_range(handle, tmp_inode,
-				le32_to_cpu(i_data[EXT4_IND_BLOCK]), &lb);
+				le32toh(i_data[EXT4_IND_BLOCK]), &lb);
 		if (retval)
 			goto err_out;
 	} else
 		lb.curr_block += max_entries;
 	if (i_data[EXT4_DIND_BLOCK]) {
 		retval = update_dind_extent_range(handle, tmp_inode,
-				le32_to_cpu(i_data[EXT4_DIND_BLOCK]), &lb);
+				le32toh(i_data[EXT4_DIND_BLOCK]), &lb);
 		if (retval)
 			goto err_out;
 	} else
 		lb.curr_block += max_entries * max_entries;
 	if (i_data[EXT4_TIND_BLOCK]) {
 		retval = update_tind_extent_range(handle, tmp_inode,
-				le32_to_cpu(i_data[EXT4_TIND_BLOCK]), &lb);
+				le32toh(i_data[EXT4_TIND_BLOCK]), &lb);
 		if (retval)
 			goto err_out;
 	}
@@ -636,16 +636,16 @@ int ext4_ind_migrate(struct inode *inode)
 	eh = ext_inode_hdr(inode);
 	ex  = EXT_FIRST_EXTENT(eh);
 	if (ext4_blocks_count(es) > EXT4_MAX_BLOCK_FILE_PHYS ||
-	    eh->eh_depth != 0 || le16_to_cpu(eh->eh_entries) > 1) {
+	    eh->eh_depth != 0 || le16toh(eh->eh_entries) > 1) {
 		ret = -EOPNOTSUPP;
 		goto errout;
 	}
 	if (eh->eh_entries == 0)
 		blk = len = start = end = 0;
 	else {
-		len = le16_to_cpu(ex->ee_len);
+		len = le16toh(ex->ee_len);
 		blk = ext4_ext_pblock(ex);
-		start = le32_to_cpu(ex->ee_block);
+		start = le32toh(ex->ee_block);
 		end = start + len - 1;
 		if (end >= EXT4_NDIR_BLOCKS) {
 			ret = -EOPNOTSUPP;
@@ -656,7 +656,7 @@ int ext4_ind_migrate(struct inode *inode)
 	ext4_clear_inode_flag(inode, EXT4_INODE_EXTENTS);
 	memset(ei->i_data, 0, sizeof(ei->i_data));
 	for (i = start; i <= end; i++)
-		ei->i_data[i] = cpu_to_le32(blk++);
+		ei->i_data[i] = htole32(blk++);
 	ret2 = ext4_mark_inode_dirty(handle, inode);
 	if (unlikely(ret2 && !ret))
 		ret = ret2;

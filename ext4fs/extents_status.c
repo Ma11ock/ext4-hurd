@@ -603,7 +603,7 @@ static void ext4_es_insert_extent_ext_check(struct inode *inode,
 
 	if (ex) {
 
-		ee_block = le32_to_cpu(ex->ee_block);
+		ee_block = le32toh(ex->ee_block);
 		ee_start = ext4_ext_pblock(ex);
 		ee_len = ext4_ext_get_actual_len(ex);
 

@@ -39,7 +39,7 @@ ext4_group_t ext4_get_group_number(struct super_block *sb,
 
 	if (test_opt2(sb, STD_GROUP_SIZE))
 		group = (block -
-			 le32_to_cpu(EXT4_SB(sb)->s_es->s_first_data_block)) >>
+			 le32toh(EXT4_SB(sb)->s_es->s_first_data_block)) >>
 			(EXT4_BLOCK_SIZE_BITS(sb) + EXT4_CLUSTER_BITS(sb) + 3);
 	else
 		ext4_get_group_no_and_offset(sb, block, &group, NULL);
@@ -56,7 +56,7 @@ void ext4_get_group_no_and_offset(struct super_block *sb, ext4_fsblk_t blocknr,
 	struct ext4_super_block *es = EXT4_SB(sb)->s_es;
 	ext4_grpblk_t offset;
 
-	blocknr = blocknr - le32_to_cpu(es->s_first_data_block);
+	blocknr = blocknr - le32toh(es->s_first_data_block);
 	offset = do_div(blocknr, EXT4_BLOCKS_PER_GROUP(sb)) >>
 		EXT4_SB(sb)->s_cluster_bits;
 	if (offsetp)
@@ -431,7 +431,7 @@ ext4_read_block_bitmap_nowait(struct super_block *sb, ext4_group_t block_group,
 	if (!desc)
 		return ERR_PTR(-EFSCORRUPTED);
 	bitmap_blk = ext4_block_bitmap(sb, desc);
-	if ((bitmap_blk <= le32_to_cpu(sbi->s_es->s_first_data_block)) ||
+	if ((bitmap_blk <= le32toh(sbi->s_es->s_first_data_block)) ||
 	    (bitmap_blk >= ext4_blocks_count(sbi->s_es))) {
 		ext4_error(sb, "Invalid block bitmap block %llu in "
 			   "block_group %u", bitmap_blk, block_group);
@@ -463,7 +463,7 @@ ext4_read_block_bitmap_nowait(struct super_block *sb, ext4_group_t block_group,
 	}
 	ext4_lock_group(sb, block_group);
 	if (ext4_has_group_desc_csum(sb) &&
-	    (desc->bg_flags & cpu_to_le16(EXT4_BG_BLOCK_UNINIT))) {
+	    (desc->bg_flags & htole16(EXT4_BG_BLOCK_UNINIT))) {
 		if (block_group == 0) {
 			ext4_unlock_group(sb, block_group);
 			unlock_buffer(bh);
@@ -787,8 +787,8 @@ int ext4_bg_has_super(struct super_block *sb, ext4_group_t group)
 	if (group == 0)
 		return 1;
 	if (ext4_has_feature_sparse_super2(sb)) {
-		if (group == le32_to_cpu(es->s_backup_bgs[0]) ||
-		    group == le32_to_cpu(es->s_backup_bgs[1]))
+		if (group == le32toh(es->s_backup_bgs[0]) ||
+		    group == le32toh(es->s_backup_bgs[1]))
 			return 1;
 		return 0;
 	}
@@ -822,7 +822,7 @@ static unsigned long ext4_bg_num_gdb_nometa(struct super_block *sb,
 		return 0;
 
 	if (ext4_has_feature_meta_bg(sb))
-		return le32_to_cpu(EXT4_SB(sb)->s_es->s_first_meta_bg);
+		return le32toh(EXT4_SB(sb)->s_es->s_first_meta_bg);
 	else
 		return EXT4_SB(sb)->s_gdb_count;
 }
@@ -839,7 +839,7 @@ static unsigned long ext4_bg_num_gdb_nometa(struct super_block *sb,
 unsigned long ext4_bg_num_gdb(struct super_block *sb, ext4_group_t group)
 {
 	unsigned long first_meta_bg =
-			le32_to_cpu(EXT4_SB(sb)->s_es->s_first_meta_bg);
+			le32toh(EXT4_SB(sb)->s_es->s_first_meta_bg);
 	unsigned long metagroup = group / EXT4_DESC_PER_BLOCK(sb);
 
 	if (!ext4_has_feature_meta_bg(sb) || metagroup < first_meta_bg)
@@ -863,11 +863,11 @@ static unsigned ext4_num_base_meta_clusters(struct super_block *sb,
 	num = ext4_bg_has_super(sb, block_group);
 
 	if (!ext4_has_feature_meta_bg(sb) ||
-	    block_group < le32_to_cpu(sbi->s_es->s_first_meta_bg) *
+	    block_group < le32toh(sbi->s_es->s_first_meta_bg) *
 			  sbi->s_desc_per_block) {
 		if (num) {
 			num += ext4_bg_num_gdb(sb, block_group);
-			num += le16_to_cpu(sbi->s_es->s_reserved_gdt_blocks);
+			num += le16toh(sbi->s_es->s_reserved_gdt_blocks);
 		}
 	} else { /* For META_BG_BLOCK_GROUPS */
 		num += ext4_bg_num_gdb(sb, block_group);
