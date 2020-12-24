@@ -1,4 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0
+/* 
+   Copyright (C) 2020 Ryan Jeffrey
+
+   Converted to work under the HURD by Ryan Jeffrey <ryan@ryanmj.xyz> 
+
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2, or (at
+   your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA */
 /*
  * Copyright (c) 2003-2006, Cluster File Systems, Inc, info@clusterfs.com
  * Written by Alex Tomas <alex@clusterfs.com>
@@ -18,22 +37,11 @@
  */
 
 #include <hurd/diskfs.h>
-#include <linux/time.h>
-#include <linux/jbd2.h>
-#include <linux/highuid.h>
-#include <linux/pagemap.h>
-#include <linux/quotaops.h>
-#include <linux/string.h>
-#include <linux/slab.h>
-#include <linux/uaccess.h>
-#include <linux/fiemap.h>
-#include <linux/backing-dev.h>
-#include <linux/iomap.h>
 #include "ext4_jbd2.h"
 #include "ext4_extents.h"
 #include "xattr.h"
 
-#include <trace/events/ext4.h>
+//#include <trace/events/ext4.h>
 
 /*
  * used by extent splitting.
@@ -2397,10 +2405,10 @@ static void ext4_rereserve_cluster(struct inode *inode, ext4_lblk_t lblk)
 
 	spin_lock(&ei->i_block_reservation_lock);
 	ei->i_reserved_data_blocks++;
-	percpu_counter_add(&sbi->s_dirtyclusters_counter, 1);
+	sbi->s_dirtyclusters_counter++;
 	spin_unlock(&ei->i_block_reservation_lock);
 
-	percpu_counter_add(&sbi->s_freeclusters_counter, 1);
+	sbi->s_freeclusters_counter++;
 	ext4_remove_pending(inode, lblk);
 }
 
@@ -5027,7 +5035,7 @@ ext4_ext_shift_path_extents(struct ext4_ext_path *path, ext4_lblk_t shift,
 
 			while (ex_start <= ex_last) {
 				if (SHIFT == SHIFT_LEFT) {
-					le32_add_cpu(&ex_start->ee_block,
+					le32addh(&ex_start->ee_block,
 						-shift);
 					/* Try to merge to the left. */
 					if ((ex_start >
@@ -5039,7 +5047,7 @@ ext4_ext_shift_path_extents(struct ext4_ext_path *path, ext4_lblk_t shift,
 					else
 						ex_start++;
 				} else {
-					le32_add_cpu(&ex_last->ee_block, shift);
+					le32addh(&ex_last->ee_block, shift);
 					ext4_ext_try_to_merge_right(inode, path,
 						ex_last);
 					ex_last--;
@@ -5059,9 +5067,9 @@ ext4_ext_shift_path_extents(struct ext4_ext_path *path, ext4_lblk_t shift,
 			goto out;
 
 		if (SHIFT == SHIFT_LEFT)
-			le32_add_cpu(&path[depth].p_idx->ei_block, -shift);
+			le32addh(&path[depth].p_idx->ei_block, -shift);
 		else
-			le32_add_cpu(&path[depth].p_idx->ei_block, shift);
+			le32addh(&path[depth].p_idx->ei_block, shift);
 		err = ext4_ext_dirty(handle, inode, path + depth);
 		if (err)
 			goto out;

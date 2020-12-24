@@ -1,4 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0
+/* 
+   Copyright (C) 2020 Ryan Jeffrey
+
+   Converted to work under the HURD by Ryan Jeffrey <ryan@ryanmj.xyz> 
+
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2, or (at
+   your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA */
 /*
  *  fs/ext4/extents_status.c
  *
@@ -10,12 +29,9 @@
  *
  * Ext4 extents status tree core functions.
  */
-#include <linux/list_sort.h>
-#include <linux/proc_fs.h>
-#include <linux/seq_file.h>
 #include "ext4.h"
 
-#include <trace/events/ext4.h>
+//#include <trace/events/ext4.h>
 
 /*
  * According to previous discussion in Ext4 Developer Workshop, we
@@ -468,12 +484,12 @@ ext4_es_alloc_extent(struct inode *inode, ext4_lblk_t lblk, ext4_lblk_t len,
 	if (!ext4_es_is_delayed(es)) {
 		if (!EXT4_I(inode)->i_es_shk_nr++)
 			ext4_es_list_add(inode);
-		percpu_counter_inc(&EXT4_SB(inode->i_sb)->
-					s_es_stats.es_stats_shk_cnt);
+		EXT4_SB(inode->i_sb)->
+					s_es_stats.es_stats_shk_cnt++;
 	}
 
 	EXT4_I(inode)->i_es_all_nr++;
-	percpu_counter_inc(&EXT4_SB(inode->i_sb)->s_es_stats.es_stats_all_cnt);
+	EXT4_SB(inode->i_sb)->s_es_stats.es_stats_all_cnt;
 
 	return es;
 }
@@ -481,15 +497,15 @@ ext4_es_alloc_extent(struct inode *inode, ext4_lblk_t lblk, ext4_lblk_t len,
 static void ext4_es_free_extent(struct inode *inode, struct extent_status *es)
 {
 	EXT4_I(inode)->i_es_all_nr--;
-	percpu_counter_dec(&EXT4_SB(inode->i_sb)->s_es_stats.es_stats_all_cnt);
+	EXT4_SB(inode->i_sb)->s_es_stats.es_stats_all_cnt--;
 
 	/* Decrease the shrink counter when this es is not delayed */
 	if (!ext4_es_is_delayed(es)) {
 		BUG_ON(EXT4_I(inode)->i_es_shk_nr == 0);
 		if (!--EXT4_I(inode)->i_es_shk_nr)
 			ext4_es_list_del(inode);
-		percpu_counter_dec(&EXT4_SB(inode->i_sb)->
-					s_es_stats.es_stats_shk_cnt);
+		EXT4_SB(inode->i_sb)->
+					s_es_stats.es_stats_shk_cnt--;
 	}
 
 	kmem_cache_free(ext4_es_cachep, es);
@@ -966,7 +982,7 @@ out:
 		es->es_pblk = es1->es_pblk;
 		if (!ext4_es_is_referenced(es1))
 			ext4_es_set_referenced(es1);
-		percpu_counter_inc(&stats->es_stats_cache_hits);
+		stats->es_stats_cache_hits++;
 		if (next_lblk) {
 			node = rb_next(&es1->rb_node);
 			if (node) {
@@ -977,7 +993,7 @@ out:
 				*next_lblk = 0;
 		}
 	} else {
-		percpu_counter_inc(&stats->es_stats_cache_misses);
+      stats->es_stats_cache_misses++;
 	}
 
 	read_unlock(&EXT4_I(inode)->i_es_lock);
@@ -1558,7 +1574,7 @@ static unsigned long ext4_es_count(struct shrinker *shrink,
 	struct ext4_sb_info *sbi;
 
 	sbi = container_of(shrink, struct ext4_sb_info, s_es_shrinker);
-	nr = percpu_counter_read_positive(&sbi->s_es_stats.es_stats_shk_cnt);
+	nr = read_counter_pos(sbi->s_es_stats.es_stats_shk_cnt);
 	trace_ext4_es_shrink_count(sbi->s_sb, sc->nr_to_scan, nr);
 	return nr;
 }
@@ -1571,7 +1587,7 @@ static unsigned long ext4_es_scan(struct shrinker *shrink,
 	int nr_to_scan = sc->nr_to_scan;
 	int ret, nr_shrunk;
 
-	ret = percpu_counter_read_positive(&sbi->s_es_stats.es_stats_shk_cnt);
+	ret = read_counter_pos(sbi->s_es_stats.es_stats_shk_cnt);
 	trace_ext4_es_shrink_scan_enter(sbi->s_sb, nr_to_scan, ret);
 
 	if (!nr_to_scan)
@@ -1605,11 +1621,11 @@ int ext4_seq_es_shrinker_info_show(struct seq_file *seq, void *v)
 	spin_unlock(&sbi->s_es_lock);
 
 	seq_printf(seq, "stats:\n  %lld objects\n  %lld reclaimable objects\n",
-		   percpu_counter_sum_positive(&es_stats->es_stats_all_cnt),
-		   percpu_counter_sum_positive(&es_stats->es_stats_shk_cnt));
+		   read_counter_pos(es_stats->es_stats_all_cnt),
+		   read_counter_pos(es_stats->es_stats_shk_cnt));
 	seq_printf(seq, "  %lld/%lld cache hits/misses\n",
-		   percpu_counter_sum_positive(&es_stats->es_stats_cache_hits),
-		   percpu_counter_sum_positive(&es_stats->es_stats_cache_misses));
+		   read_counter_pos(es_stats->es_stats_cache_hits),
+		   read_counter_pos(es_stats->es_stats_cache_misses));
 	if (inode_cnt)
 		seq_printf(seq, "  %d inodes on list\n", inode_cnt);
 
@@ -1636,48 +1652,24 @@ int ext4_es_register_shrinker(struct ext4_sb_info *sbi)
 	sbi->s_es_nr_inode = 0;
 	spin_lock_init(&sbi->s_es_lock);
 	sbi->s_es_stats.es_stats_shrunk = 0;
-	err = percpu_counter_init(&sbi->s_es_stats.es_stats_cache_hits, 0,
-				  GFP_KERNEL);
-	if (err)
-		return err;
-	err = percpu_counter_init(&sbi->s_es_stats.es_stats_cache_misses, 0,
-				  GFP_KERNEL);
-	if (err)
-		goto err1;
+	sbi->s_es_stats.es_stats_cache_hits = 0;
+    sbi->s_es_stats.es_stats_cache_misses = 0;
 	sbi->s_es_stats.es_stats_scan_time = 0;
 	sbi->s_es_stats.es_stats_max_scan_time = 0;
-	err = percpu_counter_init(&sbi->s_es_stats.es_stats_all_cnt, 0, GFP_KERNEL);
-	if (err)
-		goto err2;
-	err = percpu_counter_init(&sbi->s_es_stats.es_stats_shk_cnt, 0, GFP_KERNEL);
-	if (err)
-		goto err3;
-
+	sbi->s_es_stats.es_stats_all_cnt = 0;
+	sbi->s_es_stats.es_stats_shk_cnt = 0;
 	sbi->s_es_shrinker.scan_objects = ext4_es_scan;
 	sbi->s_es_shrinker.count_objects = ext4_es_count;
 	sbi->s_es_shrinker.seeks = DEFAULT_SEEKS;
 	err = register_shrinker(&sbi->s_es_shrinker);
 	if (err)
-		goto err4;
+		return err;
 
 	return 0;
-err4:
-	percpu_counter_destroy(&sbi->s_es_stats.es_stats_shk_cnt);
-err3:
-	percpu_counter_destroy(&sbi->s_es_stats.es_stats_all_cnt);
-err2:
-	percpu_counter_destroy(&sbi->s_es_stats.es_stats_cache_misses);
-err1:
-	percpu_counter_destroy(&sbi->s_es_stats.es_stats_cache_hits);
-	return err;
 }
 
 void ext4_es_unregister_shrinker(struct ext4_sb_info *sbi)
 {
-	percpu_counter_destroy(&sbi->s_es_stats.es_stats_cache_hits);
-	percpu_counter_destroy(&sbi->s_es_stats.es_stats_cache_misses);
-	percpu_counter_destroy(&sbi->s_es_stats.es_stats_all_cnt);
-	percpu_counter_destroy(&sbi->s_es_stats.es_stats_shk_cnt);
 	unregister_shrinker(&sbi->s_es_shrinker);
 }
 

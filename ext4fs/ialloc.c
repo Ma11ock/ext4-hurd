@@ -1,4 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0
+/* 
+   Copyright (C) 2020 Ryan Jeffrey
+
+   Converted to work under the HURD by Ryan Jeffrey <ryan@ryanmj.xyz> 
+
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2, or (at
+   your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA */
 /*
  *  linux/fs/ext4/ialloc.c
  *
@@ -13,25 +32,13 @@
  *        David S. Miller (davem@caip.rutgers.edu), 1995
  */
 
-#include <linux/time.h>
 #include <hurd/diskfs.h>
-#include <linux/stat.h>
-#include <linux/string.h>
-#include <linux/quotaops.h>
-#include <linux/buffer_head.h>
-#include <linux/random.h>
-#include <linux/bitops.h>
-#include <linux/blkdev.h>
-#include <linux/cred.h>
-
-#include <asm/byteorder.h>
-
 #include "ext4.h"
 #include "ext4_jbd2.h"
 #include "xattr.h"
 #include "acl.h"
 
-#include <trace/events/ext4.h>
+//#include <trace/events/ext4.h>
 
 /*
  * ialloc.c contains the inodes allocation and deallocation routines
@@ -322,14 +329,14 @@ void ext4_free_inode(handle_t *handle, struct inode *inode)
 	if (is_directory) {
 		count = ext4_used_dirs_count(sb, gdp) - 1;
 		ext4_used_dirs_set(sb, gdp, count);
-		percpu_counter_dec(&sbi->s_dirs_counter);
+		sbi->s_dirs_counter--;
 	}
 	ext4_inode_bitmap_csum_set(sb, block_group, gdp, bitmap_bh,
 				   EXT4_INODES_PER_GROUP(sb) / 8);
 	ext4_group_desc_csum_set(sb, block_group, gdp);
 	ext4_unlock_group(sb, block_group);
 
-	percpu_counter_inc(&sbi->s_freeinodes_counter);
+	sbi->s_freeinodes_counter++;
 	if (sbi->s_log_groups_per_flex) {
 		struct flex_groups *fg;
 
@@ -442,13 +449,13 @@ static int find_group_orlov(struct super_block *sb, struct inode *parent,
 		parent_group >>= sbi->s_log_groups_per_flex;
 	}
 
-	freei = percpu_counter_read_positive(&sbi->s_freeinodes_counter);
+	freei = read_counter_pos(sbi->s_freeinodes_counter);
 	avefreei = freei / ngroups;
 	freeb = EXT4_C2B(sbi,
-		percpu_counter_read_positive(&sbi->s_freeclusters_counter));
+		read_counter_pos(sbi->s_freeclusters_counter));
 	avefreec = freeb;
 	do_div(avefreec, ngroups);
-	ndirs = percpu_counter_read_positive(&sbi->s_dirs_counter);
+	ndirs = read_counter_pos(sbi->s_dirs_counter);
 
 	if (S_ISDIR(mode) &&
 	    ((parent == d_inode(sb->s_root)) ||
@@ -1229,9 +1236,9 @@ got:
 		goto out;
 	}
 
-	percpu_counter_dec(&sbi->s_freeinodes_counter);
+	sbi->s_freeinodes_counter--;
 	if (S_ISDIR(mode))
-		percpu_counter_inc(&sbi->s_dirs_counter);
+      sbi->s_dirs_counter++;
 
 	if (sbi->s_log_groups_per_flex) {
 		flex_group = ext4_flex_group(sbi, group);

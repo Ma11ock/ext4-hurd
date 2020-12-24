@@ -1,4 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0
+/* 
+   Copyright (C) 2020 Ryan Jeffrey
+
+   Converted to work under the HURD by Ryan Jeffrey <ryan@ryanmj.xyz> 
+
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2, or (at
+   your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA */
 /*
  *  linux/fs/ext4/inode.c
  *
@@ -20,33 +39,13 @@
  */
 
 #include <hurd/diskfs.h>
-#include <linux/time.h>
-#include <linux/highuid.h>
-#include <linux/pagemap.h>
-#include <linux/dax.h>
-#include <linux/quotaops.h>
-#include <linux/string.h>
-#include <linux/buffer_head.h>
-#include <linux/writeback.h>
-#include <linux/pagevec.h>
-#include <linux/mpage.h>
-#include <linux/namei.h>
-#include <linux/uio.h>
-#include <linux/bio.h>
-#include <linux/workqueue.h>
-#include <linux/kernel.h>
-#include <linux/printk.h>
-#include <linux/slab.h>
-#include <linux/bitops.h>
-#include <linux/iomap.h>
-#include <linux/iversion.h>
 
 #include "ext4_jbd2.h"
 #include "xattr.h"
 #include "acl.h"
 #include "truncate.h"
 
-#include <trace/events/ext4.h>
+//#include <trace/events/ext4.h>
 
 static __u32 ext4_inode_csum(struct inode *inode, struct ext4_inode *raw,
 			      struct ext4_inode_info *ei)
@@ -362,7 +361,7 @@ void ext4_da_update_reserve_space(struct inode *inode,
 
 	/* Update per-inode reservations */
 	ei->i_reserved_data_blocks -= used;
-	percpu_counter_sub(&sbi->s_dirtyclusters_counter, used);
+	sbi->s_dirtyclusters_counter -= used;
 
 	spin_unlock(&EXT4_I(inode)->i_block_reservation_lock);
 
@@ -1515,7 +1514,7 @@ void ext4_da_release_space(struct inode *inode, int to_free)
 	ei->i_reserved_data_blocks -= to_free;
 
 	/* update fs dirty data blocks counter */
-	percpu_counter_sub(&sbi->s_dirtyclusters_counter, to_free);
+	sbi->s_dirtyclusters_counter -= to_free;
 
 	spin_unlock(&EXT4_I(inode)->i_block_reservation_lock);
 
@@ -1601,10 +1600,10 @@ static void ext4_print_free_blocks(struct inode *inode)
 	ext4_msg(sb, KERN_CRIT, "Free/Dirty block details");
 	ext4_msg(sb, KERN_CRIT, "free_blocks=%lld",
 	       (long long) EXT4_C2B(EXT4_SB(sb),
-		percpu_counter_sum(&sbi->s_freeclusters_counter)));
+                                sbi->s_freeclusters_counter));
 	ext4_msg(sb, KERN_CRIT, "dirty_blocks=%lld",
 	       (long long) EXT4_C2B(EXT4_SB(sb),
-		percpu_counter_sum(&sbi->s_dirtyclusters_counter)));
+                                sbi->s_dirtyclusters_counter));
 	ext4_msg(sb, KERN_CRIT, "Block reservation details");
 	ext4_msg(sb, KERN_CRIT, "i_reserved_data_blocks=%u",
 		 ei->i_reserved_data_blocks);
@@ -2649,7 +2648,7 @@ static int ext4_writepages(struct address_space *mapping,
 	if (unlikely(ext4_forced_shutdown(EXT4_SB(inode->i_sb))))
 		return -EIO;
 
-	percpu_down_read(&sbi->s_writepages_rwsem);
+	percpu_down_read(&sbi->s_writepages_rwsem); // TODO semaphore
 	trace_ext4_writepages(inode, wbc);
 
 	/*
@@ -2859,7 +2858,7 @@ unplug:
 out_writepages:
 	trace_ext4_writepages_result(inode, wbc, ret,
 				     nr_to_write - wbc->nr_to_write);
-	percpu_up_read(&sbi->s_writepages_rwsem);
+	percpu_up_read(&sbi->s_writepages_rwsem); // TODO semaphore
 	return ret;
 }
 
@@ -2898,7 +2897,7 @@ static int ext4_nonda_switch(struct super_block *sb)
 	 * to non delalloc when we are near to error range.
 	 */
 	free_clusters =
-		percpu_counter_read_positive(&sbi->s_freeclusters_counter);
+		read_counter_pos(sbi->s_freeclusters_counter);
 	dirty_clusters =
 		percpu_counter_read_positive(&sbi->s_dirtyclusters_counter);
 	/*

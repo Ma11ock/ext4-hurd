@@ -1,4 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0
+/* 
+   Copyright (C) 2020 Ryan Jeffrey
+
+   Converted to work under the HURD by Ryan Jeffrey <ryan@ryanmj.xyz> 
+
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2, or (at
+   your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA */
 /*
  * Copyright (c) 2003-2006, Cluster File Systems, Inc, info@clusterfs.com
  * Written by Alex Tomas <alex@clusterfs.com>
@@ -11,12 +30,7 @@
 
 #include "ext4_jbd2.h"
 #include "mballoc.h"
-#include <linux/log2.h>
-#include <linux/module.h>
-#include <linux/slab.h>
-#include <linux/nospec.h>
-#include <linux/backing-dev.h>
-#include <trace/events/ext4.h>
+
 
 /*
  * MUSTDO:
@@ -369,14 +383,13 @@ static void ext4_mb_new_preallocation(struct ext4_allocation_context *ac);
  * below function ext4_get_discard_pa_seq_sum(). This happens after making
  * sure that all the PAs on grp->bb_prealloc_list got freed or if it's empty.
  */
-static DEFINE_PER_CPU(u64, discard_pa_seq);
+static _Atomic u64 discard_pa_seq = 0;
 static inline u64 ext4_get_discard_pa_seq_sum(void)
 {
 	int __cpu;
 	u64 __seq = 0;
 
-	for_each_possible_cpu(__cpu)
-		__seq += per_cpu(discard_pa_seq, __cpu);
+    __seq += discard_pa_seq;
 	return __seq;
 }
 
@@ -1482,7 +1495,7 @@ static void mb_free_blocks(struct inode *inode, struct ext4_buddy *e4b,
 	mb_check_buddy(e4b);
 	mb_free_blocks_double(inode, e4b, first, count);
 
-	this_cpu_inc(discard_pa_seq);
+	discard_pa_seq++;
 	e4b->bd_info->bb_free += count;
 	if (first < e4b->bd_info->bb_first_free)
 		e4b->bd_info->bb_first_free = first;
@@ -1626,7 +1639,7 @@ static int mb_mark_used(struct ext4_buddy *e4b, struct ext4_free_extent *ex)
 	mb_check_buddy(e4b);
 	mb_mark_used_double(e4b, start, len);
 
-	this_cpu_inc(discard_pa_seq);
+	discard_pa_seq++;
 	e4b->bd_info->bb_free -= len;
 	if (e4b->bd_info->bb_first_free == start)
 		e4b->bd_info->bb_first_free += len;
@@ -4281,7 +4294,7 @@ repeat:
 		ext4_mb_mark_pa_deleted(sb, pa);
 
 		if (!free)
-			this_cpu_inc(discard_pa_seq);
+			discard_pa_seq++;
 
 		/* we can trust pa_free ... */
 		free += pa->pa_free;
@@ -4984,7 +4997,7 @@ ext4_fsblk_t ext4_mb_new_blocks(handle_t *handle,
 	}
 
 	ac->ac_op = EXT4_MB_HISTORY_PREALLOC;
-	seq = this_cpu_read(discard_pa_seq);
+	seq = discard_pa_seq;
 	if (!ext4_mb_use_preallocated(ac)) {
 		ac->ac_op = EXT4_MB_HISTORY_ALLOC;
 		ext4_mb_normalize_request(ac, ar);

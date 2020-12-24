@@ -1,4 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0
+/* 
+   Copyright (C) 2020 Ryan Jeffrey
+
+   Converted to work under the HURD by Ryan Jeffrey <ryan@ryanmj.xyz> 
+
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2, or (at
+   your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA */
 /*
  *  fs/ext4/extents_status.h
  *
@@ -11,6 +30,8 @@
 
 #ifndef _EXT4_EXTENTS_STATUS_H
 #define _EXT4_EXTENTS_STATUS_H
+
+#include <linux/types.h>
 
 /*
  * Turn on ES_DEBUG__ to get lots of info about extent status operations.
@@ -70,12 +91,12 @@ struct ext4_es_tree {
 
 struct ext4_es_stats {
 	unsigned long es_stats_shrunk;
-	struct percpu_counter es_stats_cache_hits;
-	struct percpu_counter es_stats_cache_misses;
+	_Atomic s64 es_stats_cache_hits;
+	_Atomic s64 es_stats_cache_misses;
 	u64 es_stats_scan_time;
 	u64 es_stats_max_scan_time;
-	struct percpu_counter es_stats_all_cnt;
-	struct percpu_counter es_stats_shk_cnt;
+	_Atomic s64 es_stats_all_cnt;
+	_Atomic s64 es_stats_shk_cnt;
 };
 
 /*

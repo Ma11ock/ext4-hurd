@@ -221,7 +221,7 @@ typedef struct ext4_io_end {
 	struct bio		*bio;		/* Linked list of completed
 						 * bios covering the extent */
 	unsigned int		flag;		/* unwritten or not */
-	atomic_t		count;		/* reference counter */
+	atomic_int		count;		/* reference counter */
 	struct list_head	list_vec;	/* list of ext4_io_end_vec */
 } ext4_io_end_t;
 
@@ -355,8 +355,8 @@ struct ext4_group_desc
 
 struct flex_groups {
 	atomic64_t	free_clusters;
-	atomic_t	free_inodes;
-	atomic_t	used_dirs;
+	atomic_int	free_inodes;
+	atomic_int	used_dirs;
 };
 
 #define EXT4_BG_INODE_UNINIT	0x0001 /* Inode table/bitmap not in use */
@@ -1030,7 +1030,7 @@ struct ext4_inode_info {
 	ext4_lblk_t i_fc_lblk_len;
 
 	/* Number of ongoing updates on this inode */
-	atomic_t  i_fc_updates;
+	atomic_int  i_fc_updates;
 
 	/* Fast commit wait queue for this inode */
 	wait_queue_head_t i_fc_wait;
@@ -1087,7 +1087,7 @@ struct ext4_inode_info {
 	struct timespec64 i_crtime;
 
 	/* mballoc */
-	atomic_t i_prealloc_active;
+	atomic_int i_prealloc_active;
 	struct list_head i_prealloc_list;
 	spinlock_t i_prealloc_lock;
 
@@ -1131,7 +1131,7 @@ struct ext4_inode_info {
 	 */
 	struct list_head i_rsv_conversion_list;
 	struct work_struct i_rsv_conversion_work;
-	atomic_t i_unwritten; /* Nr. of inflight conversions pending */
+	atomic_int i_unwritten; /* Nr. of inflight conversions pending */
 
 	spinlock_t i_block_reservation_lock;
 
@@ -1530,20 +1530,20 @@ struct ext4_sb_info {
 	unsigned int s_mb_prefetch_limit;
 
 	/* stats for buddy allocator */
-	atomic_t s_bal_reqs;	/* number of reqs with len > 1 */
-	atomic_t s_bal_success;	/* we found long enough chunks */
-	atomic_t s_bal_allocated;	/* in blocks */
-	atomic_t s_bal_ex_scanned;	/* total extents scanned */
-	atomic_t s_bal_goals;	/* goal hits */
-	atomic_t s_bal_breaks;	/* too long searches */
-	atomic_t s_bal_2orders;	/* 2^order hits */
+	atomic_int s_bal_reqs;	/* number of reqs with len > 1 */
+	atomic_int s_bal_success;	/* we found long enough chunks */
+	atomic_int s_bal_allocated;	/* in blocks */
+	atomic_int s_bal_ex_scanned;	/* total extents scanned */
+	atomic_int s_bal_goals;	/* goal hits */
+	atomic_int s_bal_breaks;	/* too long searches */
+	atomic_int s_bal_2orders;	/* 2^order hits */
 	spinlock_t s_bal_lock;
 	unsigned long s_mb_buddies_generated;
 	unsigned long long s_mb_generation_time;
-	atomic_t s_mb_lost_chunks;
-	atomic_t s_mb_preallocated;
-	atomic_t s_mb_discarded;
-	atomic_t s_lock_busy;
+	atomic_int s_mb_lost_chunks;
+	atomic_int s_mb_preallocated;
+	atomic_int s_mb_discarded;
+	atomic_int s_lock_busy;
 
 	/* locality groups */
 	struct ext4_locality_group __percpu *s_locality_groups;
@@ -1574,7 +1574,7 @@ struct ext4_sb_info {
 	struct task_struct *s_mmp_tsk;
 
 	/* record the last minlen when FITRIM is called. */
-	atomic_t s_last_trim_minblks;
+	atomic_int s_last_trim_minblks;
 
 	/* Reference to checksum algorithm driver via cryptoapi */
 	struct crypto_shash *s_chksum_driver;
@@ -1595,8 +1595,8 @@ struct ext4_sb_info {
 	struct ratelimit_state s_err_ratelimit_state;
 	struct ratelimit_state s_warning_ratelimit_state;
 	struct ratelimit_state s_msg_ratelimit_state;
-	atomic_t s_warning_count;
-	atomic_t s_msg_count;
+	atomic_int s_warning_count;
+	atomic_int s_msg_count;
 
 	/* Encryption policy for '-o test_dummy_encryption' */
 	struct fscrypt_dummy_policy s_dummy_enc_policy;
@@ -1615,8 +1615,8 @@ struct ext4_sb_info {
 	spinlock_t s_bdev_wb_lock;
 
 	/* Ext4 fast commit stuff */
-	atomic_t s_fc_subtid;
-	atomic_t s_fc_ineligible_updates;
+	atomic_int s_fc_subtid;
+	atomic_int s_fc_ineligible_updates;
 	/*
 	 * After commit starts, the main queue gets locked, and the further
 	 * updates get added in the staging queue.

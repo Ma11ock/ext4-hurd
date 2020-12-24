@@ -637,4 +637,11 @@ static inline void le16addh(__le16 *var, u16 hostval)
   *var = htole16(le16toh(*var) + hostval);
 }
 
+/* Reads integer value, returns 0 if negative. This is for signed counters that
+   should never be negative. */
+static inline s64 read_counter_pos(s64 val)
+{
+  return (val <= 0) ? val : 0;
+}
+
 #endif
