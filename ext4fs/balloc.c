@@ -1,4 +1,24 @@
 // SPDX-License-Identifier: GPL-2.0
+/* 
+   Copyright (C) 2020 Ryan Jeffrey
+
+   Converted to work under the HURD by Ryan Jeffrey <ryan@ryanmj.xyz> 
+
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2, or (at
+   your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA */
+
 /*
  *  linux/fs/ext4/balloc.c
  *
@@ -12,15 +32,11 @@
  *        David S. Miller (davem@caip.rutgers.edu), 1995
  */
 
-#include <linux/time.h>
-#include <linux/capability.h>
 #include <hurd/diskfs.h>
-#include <linux/quotaops.h>
-#include <linux/buffer_head.h>
 #include "ext4.h"
 #include "ext4_jbd2.h"
 #include "mballoc.h"
-
+/*TODO look at header below*/
 #include <trace/events/ext4.h>
 
 static unsigned ext4_num_base_meta_clusters(struct super_block *sb,
@@ -570,11 +586,11 @@ static int ext4_has_free_clusters(struct ext4_sb_info *sbi,
 				  s64 nclusters, unsigned int flags)
 {
 	s64 free_clusters, dirty_clusters, rsv, resv_clusters;
-	struct percpu_counter *fcc = &sbi->s_freeclusters_counter;
-	struct percpu_counter *dcc = &sbi->s_dirtyclusters_counter;
+	_Atomic s64 *fcc = &sbi->s_freeclusters_counter;
+	_Atomic s64 *dcc = &sbi->s_dirtyclusters_counter;
 
-	free_clusters  = percpu_counter_read_positive(fcc);
-	dirty_clusters = percpu_counter_read_positive(dcc);
+	free_clusters  = *fcc;
+	dirty_clusters = *dcc;
 	resv_clusters = atomic64_read(&sbi->s_resv_clusters);
 
 	/*
@@ -586,8 +602,8 @@ static int ext4_has_free_clusters(struct ext4_sb_info *sbi,
 
 	if (free_clusters - (nclusters + rsv + dirty_clusters) <
 					EXT4_FREECLUSTERS_WATERMARK) {
-		free_clusters  = percpu_counter_sum_positive(fcc);
-		dirty_clusters = percpu_counter_sum_positive(dcc);
+		free_clusters  = *fcc;
+		dirty_clusters = *dcc;
 	}
 	/* Check whether we have space after accounting for current
 	 * dirty clusters & root reserved clusters.
@@ -618,8 +634,8 @@ int ext4_claim_free_clusters(struct ext4_sb_info *sbi,
 			     s64 nclusters, unsigned int flags)
 {
 	if (ext4_has_free_clusters(sbi, nclusters, flags)) {
-		percpu_counter_add(&sbi->s_dirtyclusters_counter, nclusters);
-		return 0;
+      sbi->s_dirtyclusters_counter += nclusters;
+      return 0;
 	} else
 		return -ENOSPC;
 }
