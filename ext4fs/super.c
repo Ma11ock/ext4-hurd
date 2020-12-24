@@ -1021,8 +1021,7 @@ void ext4_mark_group_bitmap_corrupted(struct super_block *sb,
 		ret = ext4_test_and_set_bit(EXT4_GROUP_INFO_BBITMAP_CORRUPT_BIT,
 					    &grp->bb_state);
 		if (!ret)
-			percpu_counter_sub(&sbi->s_freeclusters_counter,
-					   grp->bb_free);
+            sbi->s_freeclusters_counter -= grp->bb_free;
 	}
 
 	if (flags & EXT4_GROUP_INFO_IBITMAP_CORRUPT) {
@@ -1032,8 +1031,7 @@ void ext4_mark_group_bitmap_corrupted(struct super_block *sb,
 			int count;
 
 			count = ext4_free_inodes_count(sb, gdp);
-			percpu_counter_sub(&sbi->s_freeinodes_counter,
-					   count);
+			sbi->s_freeinodes_counter -= count;
 		}
 	}
 }
@@ -1207,10 +1205,6 @@ static void ext4_put_super(struct super_block *sb)
 		kvfree(flex_groups);
 	}
 	rcu_read_unlock();
-	percpu_counter_destroy(&sbi->s_freeclusters_counter);
-	percpu_counter_destroy(&sbi->s_freeinodes_counter);
-	percpu_counter_destroy(&sbi->s_dirs_counter);
-	percpu_counter_destroy(&sbi->s_dirtyclusters_counter);
 	percpu_free_rwsem(&sbi->s_writepages_rwsem);
 #ifdef CONFIG_QUOTA
 	for (i = 0; i < EXT4_MAXQUOTAS; i++)
@@ -4990,23 +4984,20 @@ no_journal:
 	ext4_free_blocks_count_set(sbi->s_es, 
 				   EXT4_C2B(sbi, block));
 	ext4_superblock_csum_set(sb);
-	err = percpu_counter_init(&sbi->s_freeclusters_counter, block,
-				  GFP_KERNEL);
+    
+	sbi->s_freeclusters_counter = block;
 	if (!err) {
 		unsigned long freei = ext4_count_free_inodes(sb);
 		sbi->s_es->s_free_inodes_count = htole32(freei);
 		ext4_superblock_csum_set(sb);
-		err = percpu_counter_init(&sbi->s_freeinodes_counter, freei,
-					  GFP_KERNEL);
+        sbi->s_freeinodes_counter = freei;
 	}
 	if (!err)
-		err = percpu_counter_init(&sbi->s_dirs_counter,
-					  ext4_count_dirs(sb), GFP_KERNEL);
+		sbi->s_dirs_counter = ext4_count_dirs(sb);
 	if (!err)
-		err = percpu_counter_init(&sbi->s_dirtyclusters_counter, 0,
-					  GFP_KERNEL);
+        sbi->s_dirtyclusters_counter = 0;
 	if (!err)
-		err = percpu_init_rwsem(&sbi->s_writepages_rwsem);
+		percpu_init_rwsem(&sbi->s_writepages_rwsem);
 
 	if (err) {
 		ext4_msg(sb, KERN_ERR, "insufficient memory");
@@ -5113,10 +5104,6 @@ failed_mount6:
 		kvfree(flex_groups);
 	}
 	rcu_read_unlock();
-	percpu_counter_destroy(&sbi->s_freeclusters_counter);
-	percpu_counter_destroy(&sbi->s_freeinodes_counter);
-	percpu_counter_destroy(&sbi->s_dirs_counter);
-	percpu_counter_destroy(&sbi->s_dirtyclusters_counter);
 	percpu_free_rwsem(&sbi->s_writepages_rwsem);
 failed_mount5:
 	ext4_ext_release(sb);
@@ -5497,14 +5484,9 @@ static int ext4_commit_super(struct super_block *sb, int sync)
 	else
 		es->s_kbytes_written =
 			htole64(EXT4_SB(sb)->s_kbytes_written);
-	if (percpu_counter_initialized(&EXT4_SB(sb)->s_freeclusters_counter))
-		ext4_free_blocks_count_set(es,
-			EXT4_C2B(EXT4_SB(sb), percpu_counter_sum_positive(
-				&EXT4_SB(sb)->s_freeclusters_counter)));
-	if (percpu_counter_initialized(&EXT4_SB(sb)->s_freeinodes_counter))
-		es->s_free_inodes_count =
-			htole32(percpu_counter_sum_positive(
-				&EXT4_SB(sb)->s_freeinodes_counter));
+    ext4_free_blocks_count_set(es, EXT4_C2B(EXT4_SB(sb), EXT4_SB(sb)->s_freeclusters_counter));
+	es->s_free_inodes_count =
+		htole32(EXT4_SB(sb)->s_freeinodes_counter);
 	BUFFER_TRACE(sbh, "marking dirty");
 	ext4_superblock_csum_set(sb);
 	if (sync)
@@ -6104,8 +6086,7 @@ static int ext4_statfs(struct dentry *dentry, struct kstatfs *buf)
 	buf->f_type = EXT4_SUPER_MAGIC;
 	buf->f_bsize = sb->s_blocksize;
 	buf->f_blocks = ext4_blocks_count(es) - EXT4_C2B(sbi, overhead);
-	bfree = percpu_counter_sum_positive(&sbi->s_freeclusters_counter) -
-		percpu_counter_sum_positive(&sbi->s_dirtyclusters_counter);
+	bfree = sbi->s_freeclusters_counter - sbi->s_dirtyclusters_counter;
 	/* prevent underflow in case that few free space is available */
 	buf->f_bfree = EXT4_C2B(sbi, max_t(s64, bfree, 0));
 	buf->f_bavail = buf->f_bfree -
@@ -6113,7 +6094,7 @@ static int ext4_statfs(struct dentry *dentry, struct kstatfs *buf)
 	if (buf->f_bfree < (ext4_r_blocks_count(es) + resv_blocks))
 		buf->f_bavail = 0;
 	buf->f_files = le32toh(es->s_inodes_count);
-	buf->f_ffree = percpu_counter_sum_positive(&sbi->s_freeinodes_counter);
+	buf->f_ffree = sbi->s_freeinodes_counter;
 	buf->f_namelen = EXT4_NAME_LEN;
 	fsid = le64tohp((void *)es->s_uuid) ^
 	       le64tohp((void *)es->s_uuid + sizeof(u64));

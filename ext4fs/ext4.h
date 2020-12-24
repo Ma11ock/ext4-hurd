@@ -1,4 +1,23 @@
 // SPDX-License-Identifier: GPL-2.0
+/* 
+   Copyright (C) 2020 Ryan Jeffrey
+
+   Converted to work under the HURD by Ryan Jeffrey <ryan@ryanmj.xyz> 
+
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2, or (at
+   your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA */
 /*
  *  ext4.h
  *
@@ -17,33 +36,9 @@
 #ifndef _EXT4_H
 #define _EXT4_H
 
+#include <stdatomic.h>
 #include <linux/types.h>
-#include <linux/blkdev.h>
-#include <linux/magic.h>
-#include <linux/jbd2.h>
-#include <linux/quota.h>
-#include <linux/rwsem.h>
-#include <linux/rbtree.h>
-#include <linux/seqlock.h>
-#include <linux/mutex.h>
-#include <linux/timer.h>
-#include <linux/wait.h>
-#include <linux/sched/signal.h>
-#include <linux/blockgroup_lock.h>
-#include <linux/percpu_counter.h>
-#include <linux/ratelimit.h>
-#include <crypto/hash.h>
-#include <linux/falloc.h>
-#include <linux/percpu-rwsem.h>
-#include <linux/fiemap.h>
-#ifdef __KERNEL__
-#include <linux/compat.h>
-#endif
-
-#include <linux/fscrypt.h>
-#include <linux/fsverity.h>
-
-#include <linux/compiler.h>
+#include <semaphore.h>
 
 /*
  * The fourth extended filesystem constants/structures
@@ -1470,10 +1465,10 @@ struct ext4_sb_info {
 	u32 s_hash_seed[4];
 	int s_def_hash_version;
 	int s_hash_unsigned;	/* 3 if hash should be signed, 0 if not */
-	struct percpu_counter s_freeclusters_counter;
-	struct percpu_counter s_freeinodes_counter;
-	struct percpu_counter s_dirs_counter;
-	struct percpu_counter s_dirtyclusters_counter;
+	_Atomic s64 s_freeclusters_counter;
+	_Atomic s64 s_freeinodes_counter;
+	_Atomic s64 s_dirs_counter;
+	_Atomic s64 s_dirtyclusters_counter;
 	struct blockgroup_lock *s_blockgroup_lock;
 	struct proc_dir_entry *s_proc;
 	struct kobject s_kobj;
